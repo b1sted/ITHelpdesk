@@ -1,7 +1,6 @@
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
-    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'ru.basted'
@@ -13,32 +12,55 @@ java {
     }
 }
 
+compileJava {
+    options.compilerArgs += [
+            '-Amapstruct.defaultComponentModel=spring'
+    ]
+}
+
 repositories {
     mavenCentral()
 }
 
+def springDependenciesVersion = providers.systemProperty('spring.dependencies.version')
+        .orElse('4.1.1')
+        .get()
+
+def openapiStarterVersion = providers.systemProperty('openapi.starter.version')
+        .orElse('3.1.0')
+        .get()
+
+def mapstructVersion = providers.systemProperty('mapstruct.version')
+        .orElse('1.6.3')
+        .get()
+
+def lombokMapstructBindingVersion = providers.systemProperty('lombok.mapstruct.binding.version')
+        .orElse('0.2.0')
+        .get()
+
 dependencies {
+    implementation platform("org.springframework.boot:spring-boot-dependencies:${springDependenciesVersion}")
+
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${openapiStarterVersion}"
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
 
     compileOnly 'org.projectlombok:lombok'
-
     runtimeOnly 'org.postgresql:postgresql'
 
     annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+    annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 
     testCompileOnly 'org.projectlombok:lombok'
-
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
