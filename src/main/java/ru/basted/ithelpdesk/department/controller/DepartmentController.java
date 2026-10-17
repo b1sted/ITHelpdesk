@@ -7,8 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import lombok.AllArgsConstructor;
-
 import ru.basted.ithelpdesk.department.dto.DepartmentChangeName;
 import ru.basted.ithelpdesk.department.dto.DepartmentCreateRequest;
 import ru.basted.ithelpdesk.department.dto.DepartmentResponse;
@@ -16,9 +14,12 @@ import ru.basted.ithelpdesk.department.service.DepartmentService;
 
 @RestController
 @RequestMapping("/api/v1/departments")
-@AllArgsConstructor
 public class DepartmentController implements DepartmentAPI {
     private final DepartmentService service;
+
+    public DepartmentController(DepartmentService service) {
+        this.service = service;
+    }
 
     @Override
     public ResponseEntity<List<DepartmentResponse>> getAllDepartments() {
