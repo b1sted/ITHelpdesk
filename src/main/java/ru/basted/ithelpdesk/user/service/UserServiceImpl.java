@@ -1,12 +1,10 @@
 package ru.basted.ithelpdesk.user.service;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
@@ -21,12 +19,6 @@ import ru.basted.ithelpdesk.user.repository.UserRepository;
 
 @Service
 public class UserServiceImpl implements UserService {
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
-
-    private static final int FULL_NAME_MAX_LENGTH = 150;
-    private static final int EMAIL_MAX_LENGTH = 100;
-
     private final UserRepository repository;
     private final UserMapper mapper;
     private final DepartmentRepository departmentRepository;
@@ -86,11 +78,11 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new NotFoundException("Не найден пользователь с ID " + id));
 
         if (updateRequest.fullName() != null) {
-            user.setFullName(validateFullName(updateRequest.fullName()));
+            user.setFullName(updateRequest.fullName());
         }
 
         if (updateRequest.email() != null) {
-            String email = validateEmail(updateRequest.email());
+            String email = updateRequest.email();
             if (!email.equals(user.getEmail()) && repository.existsByEmail(email)) {
                 throw new ConflictException(
                         "Пользователь с электронной почтой " + email + " уже существует"
@@ -119,31 +111,6 @@ public class UserServiceImpl implements UserService {
         }
 
         repository.deleteById(id);
-    }
-
-    private String validateFullName(String fullName) {
-        if (!StringUtils.hasText(fullName)) {
-            throw new IllegalArgumentException("Полное имя не может быть пустым");
-        }
-        if (fullName.length() > FULL_NAME_MAX_LENGTH) {
-            throw new IllegalArgumentException("Полное имя не может быть длиннее " + FULL_NAME_MAX_LENGTH + " символов");
-        }
-        return fullName;
-    }
-
-    private String validateEmail(String email) {
-        if (!StringUtils.hasText(email)) {
-            throw new IllegalArgumentException("Электронная почта не может быть пустой");
-        }
-        if (email.length() > EMAIL_MAX_LENGTH) {
-            throw new IllegalArgumentException(
-                    "Электронная почта не может быть длиннее " + EMAIL_MAX_LENGTH + " символов"
-            );
-        }
-        if (!EMAIL_PATTERN.matcher(email).matches()) {
-            throw new IllegalArgumentException("Некорректный формат электронной почты");
-        }
-        return email;
     }
 
     private void validateDepartment(Long departmentId) {
