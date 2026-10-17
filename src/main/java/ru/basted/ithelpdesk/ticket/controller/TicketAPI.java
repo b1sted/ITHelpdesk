@@ -46,8 +46,8 @@ public interface TicketAPI {
     );
 
     @Operation(
-            summary = "Получить информацию о заявке по идентификатору",
-            description = "Возвращает информацию о конкретной заявке с её автором и исполнителем"
+            summary = "Получить полную информацию о заявке по идентификатору",
+            description = "Возвращает информацию о конкретной заявке с её автором, исполнителем и комментариями"
     )
     @GetMapping("/{id}")
     ResponseEntity<TicketResponse> getTicketById(

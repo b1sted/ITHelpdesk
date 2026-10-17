@@ -35,7 +35,7 @@ public class TicketController implements TicketAPI {
 
     @Override
     public ResponseEntity<TicketResponse> getTicketById(Long id) {
-        return ResponseEntity.ok(service.getTicketById(id));
+        return ResponseEntity.ok(service.getTicketDetails(id));
     }
 
     @Override
