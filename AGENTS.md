@@ -297,7 +297,8 @@ export interface TicketResponse {
 ---
 
 ## 9. Build & Verification Commands
-* **Run backend application:** `./gradlew bootRun`
+* **Start local PostgreSQL:** `docker compose up -d`
+* **Run backend application:** `./gradlew bootRun` (serves REST API and Swagger UI at `http://localhost:8080/swagger-ui.html`)
 * **Run test suite:** `./gradlew test`
 * **Build backend archive:** `./gradlew build -x test`
 * **Run frontend dev server:** `cd frontend && npm run dev`
