@@ -1,4 +1,4 @@
-package ru.basted.ithelpdesk.departments.controller;
+package ru.basted.ithelpdesk.department.controller;
 
 import java.util.List;
 
@@ -9,37 +9,37 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.AllArgsConstructor;
 
-import ru.basted.ithelpdesk.departments.dto.DepartmentsChangeName;
-import ru.basted.ithelpdesk.departments.dto.DepartmentsCreateRequest;
-import ru.basted.ithelpdesk.departments.dto.DepartmentsResponse;
-import ru.basted.ithelpdesk.departments.service.DepartmentsService;
+import ru.basted.ithelpdesk.department.dto.DepartmentChangeName;
+import ru.basted.ithelpdesk.department.dto.DepartmentCreateRequest;
+import ru.basted.ithelpdesk.department.dto.DepartmentResponse;
+import ru.basted.ithelpdesk.department.service.DepartmentService;
 
 @RestController
 @RequestMapping("/api/v1/departments")
 @AllArgsConstructor
-public class DepartmentsController implements DepartmentsAPI {
-    private final DepartmentsService service;
+public class DepartmentController implements DepartmentAPI {
+    private final DepartmentService service;
 
     @Override
-    public ResponseEntity<List<DepartmentsResponse>> getAllDepartments() {
+    public ResponseEntity<List<DepartmentResponse>> getAllDepartments() {
         return ResponseEntity.ok(service.getAllDepartments());
     }
 
     @Override
-    public ResponseEntity<DepartmentsResponse> getDepartmentById(Long id) {
+    public ResponseEntity<DepartmentResponse> getDepartmentById(Long id) {
         return ResponseEntity.ok(service.getDepartmentById(id));
     }
 
     @Override
-    public ResponseEntity<DepartmentsResponse> createDepartment(DepartmentsCreateRequest createRequest) {
-        DepartmentsResponse saved = service.createDepartment(createRequest);
+    public ResponseEntity<DepartmentResponse> createDepartment(DepartmentCreateRequest createRequest) {
+        DepartmentResponse saved = service.createDepartment(createRequest);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(saved);
     }
 
     @Override
-    public ResponseEntity<Void> updateName(Long id, DepartmentsChangeName changeName) {
+    public ResponseEntity<Void> updateName(Long id, DepartmentChangeName changeName) {
         service.updateName(id, changeName.name());
 
         return ResponseEntity.noContent().build();
