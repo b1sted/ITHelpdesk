@@ -67,7 +67,7 @@ public interface UserAPI {
             @PathVariable("id")
             @Min(value = 1, message = "ID не может быть меньше нуля") Long id,
 
-            @RequestBody UserUpdateRequest updateRequest
+            @Valid @RequestBody UserUpdateRequest updateRequest
     );
 
     @Operation(
