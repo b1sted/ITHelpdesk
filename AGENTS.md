@@ -198,6 +198,7 @@ Base Path: `/api/v1`
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
 | `POST` | `/tickets/{id}/comments`| Post a message in the ticket thread (BP-3)| Authenticated | `201 Created`, `400 Bad Request` |
+| `GET` | `/tickets/{id}/comments` | List messages of the ticket thread in chronological order | Authenticated | `200 OK`, `404 Not Found` |
 
 ### 7.4. Categories Management (Admin CRUD)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
