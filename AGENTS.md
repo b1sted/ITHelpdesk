@@ -167,6 +167,13 @@ The system communicates with users and developers **exclusively in Russian**.
 * **OpenAPI on Interfaces:** Place all `@Tag`, `@Operation`, and `@ApiResponses` annotations exclusively on `<Entity>API` interfaces.
 * **Jakarta Constraints:** Every Request DTO field must have constraints with informative Russian messages (`@NotBlank`, `@Size`, `@NotNull`, `@Email`). Controllers must enforce `@Valid`.
 
+### 6.6. Error Handling & Utilities
+* **NotFound:** Missing entities must throw `core.exception.NotFoundException` (maps to `404 Not Found`).
+* **Conflict:** Duplicate or invalid state transitions must throw `core.exception.ConflictException` (maps to `409 Conflict`).
+* **Bad Request:** Invalid arguments and validation failures map to `400 Bad Request` via the global `core.exception.ApiExceptionHandler`.
+* **Current User:** The authenticated principal is resolved through the `core.security.CurrentUser` component; ownership checks (ticket author, assignee) must be enforced in the service layer.
+* **No Lombok:** Entities expose explicit accessors and beans rely on constructor injection.
+
 ---
 
 ## 7. REST API Endpoints Specification
