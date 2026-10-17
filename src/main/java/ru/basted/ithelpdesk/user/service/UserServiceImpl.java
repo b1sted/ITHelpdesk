@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import ru.basted.ithelpdesk.core.exception.ConflictException;
+import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
@@ -55,7 +57,7 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         User user = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Не найден пользователь с ID " + id));
+                .orElseThrow(() -> new NotFoundException("Не найден пользователь с ID " + id));
 
         return toResponse(user);
     }
@@ -64,7 +66,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse createUser(UserCreateRequest createRequest) {
         if (repository.existsByEmail(createRequest.email())) {
-            throw new IllegalArgumentException(
+            throw new ConflictException(
                     "Пользователь с электронной почтой " + createRequest.email() + " уже существует"
             );
         }
@@ -81,7 +83,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse updateUser(Long id, UserUpdateRequest updateRequest) {
         User user = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Не найден пользователь с ID " + id));
+                .orElseThrow(() -> new NotFoundException("Не найден пользователь с ID " + id));
 
         if (updateRequest.fullName() != null) {
             user.setFullName(validateFullName(updateRequest.fullName()));
@@ -90,7 +92,7 @@ public class UserServiceImpl implements UserService {
         if (updateRequest.email() != null) {
             String email = validateEmail(updateRequest.email());
             if (!email.equals(user.getEmail()) && repository.existsByEmail(email)) {
-                throw new IllegalArgumentException(
+                throw new ConflictException(
                         "Пользователь с электронной почтой " + email + " уже существует"
                 );
             }
@@ -113,7 +115,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deleteUser(Long id) {
         if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Не найден пользователь с ID " + id);
+            throw new NotFoundException("Не найден пользователь с ID " + id);
         }
 
         repository.deleteById(id);
@@ -146,7 +148,7 @@ public class UserServiceImpl implements UserService {
 
     private void validateDepartment(Long departmentId) {
         if (!departmentRepository.existsById(departmentId)) {
-            throw new IllegalArgumentException("Не найден департамент с ID " + departmentId);
+            throw new NotFoundException("Не найден департамент с ID " + departmentId);
         }
     }
 

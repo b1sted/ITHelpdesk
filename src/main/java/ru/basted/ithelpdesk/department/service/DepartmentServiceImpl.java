@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import ru.basted.ithelpdesk.core.exception.ConflictException;
+import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.department.dto.DepartmentCreateRequest;
 import ru.basted.ithelpdesk.department.dto.DepartmentResponse;
 import ru.basted.ithelpdesk.department.entity.Department;
@@ -34,7 +36,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Transactional(readOnly = true)
     public DepartmentResponse getDepartmentById(Long id) {
         Department department = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Не найден департамент с ID " + id));
+                .orElseThrow(() -> new NotFoundException("Не найден департамент с ID " + id));
 
         return mapper.toResponseDto(department);
     }
@@ -43,7 +45,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Transactional
     public DepartmentResponse createDepartment(DepartmentCreateRequest createRequest) {
         if (repository.existsByName(createRequest.name())) {
-            throw new IllegalArgumentException(
+            throw new ConflictException(
                     "Департамент с именем " + createRequest.name() + " уже существует в базе данных"
             );
         }
@@ -58,7 +60,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Transactional
     public void updateName(Long id, String name) {
         Department department = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Не найден департамент с ID " + id));
+                .orElseThrow(() -> new NotFoundException("Не найден департамент с ID " + id));
         department.setName(name);
     }
 
@@ -66,7 +68,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Transactional
     public void deleteDepartment(Long id) {
         if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Не найден департамент с ID " + id);
+            throw new NotFoundException("Не найден департамент с ID " + id);
         }
 
         repository.deleteById(id);

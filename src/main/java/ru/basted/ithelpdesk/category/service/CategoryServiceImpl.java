@@ -10,6 +10,8 @@ import ru.basted.ithelpdesk.category.dto.CategoryResponse;
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.category.mapper.CategoryMapper;
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
+import ru.basted.ithelpdesk.core.exception.ConflictException;
+import ru.basted.ithelpdesk.core.exception.NotFoundException;
 
 @Service
 public class CategoryServiceImpl implements CategoryService {
@@ -34,7 +36,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
         Category category = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Не найдена категория с ID " + id));
+                .orElseThrow(() -> new NotFoundException("Не найдена категория с ID " + id));
 
         return mapper.toResponseDto(category);
     }
@@ -43,7 +45,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public CategoryResponse createCategory(CategoryCreateRequest createRequest) {
         if (repository.existsByName(createRequest.name())) {
-            throw new IllegalArgumentException(
+            throw new ConflictException(
                     "Категория с именем " + createRequest.name() + " уже существует в базе данных"
             );
         }
@@ -58,7 +60,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public void updateName(Long id, String name) {
         Category category = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Не найдена категория с ID " + id));
+                .orElseThrow(() -> new NotFoundException("Не найдена категория с ID " + id));
         category.setName(name);
     }
 
@@ -66,7 +68,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public void deleteCategory(Long id) {
         if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Не найдена категория с ID " + id);
+            throw new NotFoundException("Не найдена категория с ID " + id);
         }
 
         repository.deleteById(id);
