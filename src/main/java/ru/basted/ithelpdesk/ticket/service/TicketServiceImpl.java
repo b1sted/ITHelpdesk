@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
+import ru.basted.ithelpdesk.comment.dto.CommentResponse;
+import ru.basted.ithelpdesk.comment.service.CommentService;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
@@ -31,6 +33,7 @@ public class TicketServiceImpl implements TicketService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final CommentService commentService;
     private final CurrentUser currentUser;
 
     public TicketServiceImpl(
@@ -39,6 +42,7 @@ public class TicketServiceImpl implements TicketService {
             CategoryRepository categoryRepository,
             UserRepository userRepository,
             DepartmentRepository departmentRepository,
+            CommentService commentService,
             CurrentUser currentUser
     ) {
         this.repository = repository;
@@ -46,6 +50,7 @@ public class TicketServiceImpl implements TicketService {
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
+        this.commentService = commentService;
         this.currentUser = currentUser;
     }
 
@@ -62,7 +67,7 @@ public class TicketServiceImpl implements TicketService {
 
         Ticket savedTicket = repository.save(ticket);
 
-        return toResponse(savedTicket);
+        return toResponse(savedTicket, false);
     }
 
     @Override
@@ -76,17 +81,17 @@ public class TicketServiceImpl implements TicketService {
         }
 
         return tickets.stream()
-                .map(this::toResponse)
+                .map(ticket -> toResponse(ticket, false))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public TicketResponse getTicketById(Long id) {
+    public TicketResponse getTicketDetails(Long id) {
         Ticket ticket = repository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Не найдена заявка с ID " + id));
 
-        return toResponse(ticket);
+        return toResponse(ticket, true);
     }
 
     @Override
@@ -105,7 +110,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setAssigneeId(assignee.getId());
         ticket.setStatus(TicketStatus.IN_PROGRESS);
 
-        return toResponse(repository.save(ticket));
+        return toResponse(repository.save(ticket), false);
     }
 
     @Override
@@ -127,7 +132,7 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        return toResponse(repository.save(ticket));
+        return toResponse(repository.save(ticket), false);
     }
 
     private void pauseTicket(Ticket ticket, User user) {
@@ -181,7 +186,7 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
-    private TicketResponse toResponse(Ticket ticket) {
+    private TicketResponse toResponse(Ticket ticket, boolean withComments) {
         UserSummary creator = toSummary(ticket.getCreatorId());
         UserSummary assignee = ticket.getAssigneeId() == null
                 ? null
@@ -191,6 +196,10 @@ public class TicketServiceImpl implements TicketService {
                 .map(category -> category.getName())
                 .orElse(null);
 
+        List<CommentResponse> comments = withComments
+                ? commentService.getCommentsByTicket(ticket.getId())
+                : List.of();
+
         return new TicketResponse(
                 ticket.getId(),
                 ticket.getTitle(),
@@ -199,7 +208,8 @@ public class TicketServiceImpl implements TicketService {
                 ticket.getCreatedAt(),
                 creator,
                 assignee,
-                categoryName
+                categoryName,
+                comments
         );
     }
 

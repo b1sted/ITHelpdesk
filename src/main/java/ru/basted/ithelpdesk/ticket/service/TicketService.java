@@ -12,7 +12,7 @@ public interface TicketService {
 
     List<TicketResponse> getAllTickets(TicketStatus status);
 
-    TicketResponse getTicketById(Long id);
+    TicketResponse getTicketDetails(Long id);
 
     TicketResponse assignTicket(Long id);
 
