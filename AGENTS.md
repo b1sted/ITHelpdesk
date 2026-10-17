@@ -216,7 +216,7 @@ Base Path: `/api/v1`
 | `GET` | `/users` | List all users (directory) | `ADMIN` | `200 OK` |
 | `GET` | `/users/{id}` | Get user profile by ID | `ADMIN`, Self | `200 OK`, `404 Not Found` |
 | `POST` | `/users` | Provision a new user account | `ADMIN` | `201 Created`, `409 Conflict` |
-| `PUT` | `/users/{id}` | Update user profile / department / role | `ADMIN` | `200 OK`, `404 Not Found` |
+| `PATCH`| `/users/{id}` | Partially update user profile / department / role | `ADMIN` | `200 OK`, `404 Not Found` |
 | `DELETE`| `/users/{id}` | Deactivate or remove user | `ADMIN` | `204 No Content`, `404 Not Found` |
 
 ---
