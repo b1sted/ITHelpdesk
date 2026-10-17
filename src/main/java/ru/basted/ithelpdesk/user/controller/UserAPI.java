@@ -10,8 +10,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,17 +56,18 @@ public interface UserAPI {
     );
 
     @Operation(
-            summary = "Обновить информацию о пользователе",
-            description = "Обновление профиля, департамента или роли пользователя. Доступно только администраторам"
+            summary = "Частично обновить информацию о пользователе",
+            description = "Обновление профиля, департамента или роли пользователя. Обновляются только переданные " +
+                    "поля, остальные значения сохраняются. Доступно только администраторам"
     )
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<UserResponse> updateUser(
             @Parameter(description = "Уникальный идентификатор пользователя", required = true, example = "1")
             @PathVariable("id")
             @Min(value = 1, message = "ID не может быть меньше нуля") Long id,
 
-            @Valid @RequestBody UserUpdateRequest updateRequest
+            @RequestBody UserUpdateRequest updateRequest
     );
 
     @Operation(
