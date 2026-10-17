@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "Модель данных для изменения названия департамента")
 public record DepartmentChangeName(
-        @NotBlank(message = "Имя департамента не может быть пустым")
-        @Schema(description = "Наименование департамента", example = "Департамент тестирования программных продуктов")
-        String name
-) { }
+    @NotBlank(message = "Имя департамента не может быть пустым")
+    @Schema(description = "Наименование департамента", example = "Департамент тестирования программных продуктов")
+    String name
+) {}
