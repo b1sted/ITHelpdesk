@@ -5,8 +5,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
-
 import ru.basted.ithelpdesk.department.dto.DepartmentCreateRequest;
 import ru.basted.ithelpdesk.department.dto.DepartmentResponse;
 import ru.basted.ithelpdesk.department.entity.Department;
@@ -14,10 +12,14 @@ import ru.basted.ithelpdesk.department.mapper.DepartmentMapper;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 
 @Service
-@RequiredArgsConstructor
 public class DepartmentServiceImpl implements DepartmentService {
     private final DepartmentRepository repository;
     private final DepartmentMapper mapper;
+
+    public DepartmentServiceImpl(DepartmentRepository repository, DepartmentMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
+    }
 
     @Override
     @Transactional(readOnly = true)

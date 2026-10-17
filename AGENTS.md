@@ -17,7 +17,7 @@ This document serves as the single source of truth for AI agents (SourceCraft, C
   * **Framework:** Spring Boot 3.4+ (Spring Web, Spring Data JPA, Spring Security, Validation).
   * **Build Tool:** Gradle (Groovy DSL).
   * **Database:** PostgreSQL (with Hibernate ORM).
-  * **Boilerplate Reduction:** Project Lombok (`@Getter`, `@Setter`, `@RequiredArgsConstructor`, `@Builder`).
+  * **Boilerplate Reduction:** Immutable DTOs as Java `record`s; no Lombok — entities expose explicit accessors and beans rely on constructor injection.
   * **API Documentation:** Springdoc OpenAPI 3.0 (Swagger UI).
 * **Frontend:**
   * **Core:** React 18, TypeScript, Vite.
