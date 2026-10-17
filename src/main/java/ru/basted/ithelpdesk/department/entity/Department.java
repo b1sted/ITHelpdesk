@@ -1,4 +1,4 @@
-package ru.basted.ithelpdesk.departments.entity;
+package ru.basted.ithelpdesk.department.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,7 +13,7 @@ import ru.basted.ithelpdesk.core.model.BaseEntity;
 @Table(name = "departments")
 @Getter
 @Setter
-public class Departments extends BaseEntity {
+public class Department extends BaseEntity {
     @Column(name = "name", unique = true, nullable = false)
     private String name;
 }
