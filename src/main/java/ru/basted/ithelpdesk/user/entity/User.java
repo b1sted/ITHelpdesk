@@ -47,6 +47,10 @@ public class User extends BaseEntity {
         this.password = password;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
     public UserRole getRole() {
         return role;
     }
