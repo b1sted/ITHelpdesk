@@ -38,3 +38,9 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Frontend ###
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
