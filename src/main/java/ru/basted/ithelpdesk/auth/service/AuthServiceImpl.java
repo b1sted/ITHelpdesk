@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.basted.ithelpdesk.auth.dto.AuthResponse;
 import ru.basted.ithelpdesk.auth.dto.LoginRequest;
 import ru.basted.ithelpdesk.auth.security.JwtService;
+import ru.basted.ithelpdesk.auth.security.LoginRateLimiter;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
@@ -18,20 +19,26 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final LoginRateLimiter rateLimiter;
 
     public AuthServiceImpl(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            LoginRateLimiter rateLimiter
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.rateLimiter = rateLimiter;
     }
 
     @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest loginRequest) {
+        String key = "login:" + loginRequest.email().toLowerCase().trim();
+        rateLimiter.check(key);
+
         User user = userRepository.findByEmail(loginRequest.email())
                 .orElseThrow(() -> new NotFoundException(INVALID_CREDENTIALS));
 
@@ -39,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
             throw new NotFoundException(INVALID_CREDENTIALS);
         }
 
+        rateLimiter.reset(key);
         String token = jwtService.generateToken(user);
 
         return new AuthResponse(
