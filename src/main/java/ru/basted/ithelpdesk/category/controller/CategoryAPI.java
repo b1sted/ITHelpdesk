@@ -37,9 +37,8 @@ public interface CategoryAPI {
               "name": "Оборудование"
             }""";
     String CATEGORY_LIST_JSON = "[" + CATEGORY_JSON + "]";
-    String ERROR_401_JSON = "{\"message\":\"Требуется аутентификация\"}";
-    String ERROR_403_JSON = "{\"message\":\"Недостаточно прав для выполнения запроса\"}";
-    String ERROR_404_JSON = "{\"message\":\"Не найдена категория с ID 99\"}";
+    String ERROR_404_GENERIC_JSON = "{\"message\":\"Ресурс не найден\"}";
+    String ERROR_404_CATEGORY_JSON = "{\"message\":\"Не найдена категория с ID 99\"}";
     String ERROR_400_JSON = "{\"message\":\"Имя категории не может быть пустым\"}";
     String ERROR_409_JSON = "{\"message\":\"Категория с именем Дубликат уже существует в базе данных\"}";
 
@@ -52,10 +51,11 @@ public interface CategoryAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = CategoryResponse.class),
                             examples = @ExampleObject(value = CATEGORY_LIST_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Ресурс не найден или требуется аутентификация",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON)))
+                            examples = @ExampleObject(value = ERROR_404_GENERIC_JSON)))
     })
     @GetMapping
     ResponseEntity<List<CategoryResponse>> getAllCategories();
@@ -70,14 +70,14 @@ public interface CategoryAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = CategoryResponse.class),
                             examples = @ExampleObject(value = CATEGORY_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Категория не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "404", description = "Категория не найдена",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найдена категория", value = ERROR_404_CATEGORY_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @GetMapping("/{id}")
     ResponseEntity<CategoryResponse> getCategoryById(
@@ -99,14 +99,11 @@ public interface CategoryAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_400_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Ресурс скрыт или недостаточно прав",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_403_JSON))),
+                            examples = @ExampleObject(value = ERROR_404_GENERIC_JSON))),
             @ApiResponse(responseCode = "409", description = "Категория с таким именем уже существует",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
@@ -128,18 +125,14 @@ public interface CategoryAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_400_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Категория не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_403_JSON))),
-            @ApiResponse(responseCode = "404", description = "Категория не найдена",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найдена категория", value = ERROR_404_CATEGORY_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -157,18 +150,14 @@ public interface CategoryAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Категория успешно удалена"),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Категория не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_403_JSON))),
-            @ApiResponse(responseCode = "404", description = "Категория не найдена",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найдена категория", value = ERROR_404_CATEGORY_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

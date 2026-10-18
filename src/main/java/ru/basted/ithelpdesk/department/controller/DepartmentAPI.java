@@ -37,9 +37,8 @@ public interface DepartmentAPI {
               "name": "Департамент тестирования программных продуктов"
             }""";
     String DEPARTMENT_LIST_JSON = "[" + DEPARTMENT_JSON + "]";
-    String ERROR_401_JSON = "{\"message\":\"Требуется аутентификация\"}";
-    String ERROR_403_JSON = "{\"message\":\"Недостаточно прав для выполнения запроса\"}";
-    String ERROR_404_JSON = "{\"message\":\"Не найден департамент с ID 99\"}";
+    String ERROR_404_GENERIC_JSON = "{\"message\":\"Ресурс не найден\"}";
+    String ERROR_404_DEPARTMENT_JSON = "{\"message\":\"Не найден департамент с ID 99\"}";
     String ERROR_400_JSON = "{\"message\":\"Имя департамента не может быть пустым\"}";
     String ERROR_409_JSON = "{\"message\":\"Департамент с именем Дубликат уже существует в базе данных\"}";
 
@@ -52,10 +51,11 @@ public interface DepartmentAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = DepartmentResponse.class),
                             examples = @ExampleObject(value = DEPARTMENT_LIST_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Ресурс не найден или требуется аутентификация",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON)))
+                            examples = @ExampleObject(value = ERROR_404_GENERIC_JSON)))
     })
     @GetMapping
     ResponseEntity<List<DepartmentResponse>> getAllDepartments();
@@ -70,14 +70,14 @@ public interface DepartmentAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = DepartmentResponse.class),
                             examples = @ExampleObject(value = DEPARTMENT_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Департамент не найден или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "404", description = "Департамент не найден",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найден департамент", value = ERROR_404_DEPARTMENT_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @GetMapping("/{id}")
     ResponseEntity<DepartmentResponse> getDepartmentById(
@@ -99,14 +99,11 @@ public interface DepartmentAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_400_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Ресурс скрыт или недостаточно прав",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_403_JSON))),
+                            examples = @ExampleObject(value = ERROR_404_GENERIC_JSON))),
             @ApiResponse(responseCode = "409", description = "Департамент с таким именем уже существует",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
@@ -128,18 +125,14 @@ public interface DepartmentAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_400_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Департамент не найден или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_403_JSON))),
-            @ApiResponse(responseCode = "404", description = "Департамент не найден",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найден департамент", value = ERROR_404_DEPARTMENT_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -157,18 +150,14 @@ public interface DepartmentAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Департамент успешно удалён"),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Департамент не найден или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_403_JSON))),
-            @ApiResponse(responseCode = "404", description = "Департамент не найден",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найден департамент", value = ERROR_404_DEPARTMENT_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

@@ -41,8 +41,8 @@ public interface CommentAPI {
               }
             }""";
     String COMMENT_LIST_JSON = "[" + COMMENT_JSON + "]";
-    String ERROR_401_JSON = "{\"message\":\"Требуется аутентификация\"}";
-    String ERROR_404_JSON = "{\"message\":\"Не найдена заявка с ID 99\"}";
+    String ERROR_404_GENERIC_JSON = "{\"message\":\"Ресурс не найден\"}";
+    String ERROR_404_TICKET_JSON = "{\"message\":\"Не найдена заявка с ID 99\"}";
     String ERROR_400_JSON = "{\"message\":\"Текст комментария не может быть пустым\"}";
     String ERROR_409_JSON = "{\"message\":\"Нельзя добавлять комментарии к закрытой заявке\"}";
 
@@ -59,14 +59,14 @@ public interface CommentAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_400_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Заявка не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "404", description = "Заявка не найдена",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON))),
+                            examples = {
+                                    @ExampleObject(name = "Не найдена заявка", value = ERROR_404_TICKET_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            })),
             @ApiResponse(responseCode = "409", description = "Нельзя комментировать закрытую заявку",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
@@ -90,14 +90,14 @@ public interface CommentAPI {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = CommentResponse.class),
                             examples = @ExampleObject(value = COMMENT_LIST_JSON))),
-            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+            @ApiResponse(responseCode = "404",
+                    description = "Заявка не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_401_JSON))),
-            @ApiResponse(responseCode = "404", description = "Заявка не найдена",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_404_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Не найдена заявка", value = ERROR_404_TICKET_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            }))
     })
     @GetMapping
     ResponseEntity<List<CommentResponse>> getCommentsByTicket(
