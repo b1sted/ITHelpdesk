@@ -19,6 +19,8 @@ import ru.basted.ithelpdesk.core.exception.ApiError;
 
 @Component
 public class RestAuthenticationHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
+    private static final String RESOURCE_NOT_FOUND = "Ресурс не найден";
+
     private final ObjectMapper objectMapper;
 
     public RestAuthenticationHandler(ObjectMapper objectMapper) {
@@ -31,7 +33,7 @@ public class RestAuthenticationHandler implements AuthenticationEntryPoint, Acce
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
-        writeError(response, HttpServletResponse.SC_UNAUTHORIZED, "Требуется аутентификация");
+        writeNotFound(response);
     }
 
     @Override
@@ -40,13 +42,13 @@ public class RestAuthenticationHandler implements AuthenticationEntryPoint, Acce
             HttpServletResponse response,
             AccessDeniedException accessDeniedException
     ) throws IOException, ServletException {
-        writeError(response, HttpServletResponse.SC_FORBIDDEN, "Недостаточно прав для выполнения запроса");
+        writeNotFound(response);
     }
 
-    private void writeError(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
+    private void writeNotFound(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getOutputStream(), new ApiError(message));
+        objectMapper.writeValue(response.getOutputStream(), new ApiError(RESOURCE_NOT_FOUND));
     }
 }
