@@ -16,8 +16,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import ru.basted.ithelpdesk.core.exception.ApiError;
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
 import ru.basted.ithelpdesk.user.dto.UserResponse;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
@@ -28,6 +33,8 @@ public interface UserAPI {
             summary = "Получить список всех пользователей",
             description = "Возвращает список всех зарегистрированных пользователей. Доступно только администраторам"
     )
+    @ApiResponse(responseCode = "200", description = "Список пользователей",
+            content = @Content(schema = @Schema(implementation = UserResponse.class)))
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<List<UserResponse>> getAllUsers();
@@ -37,6 +44,12 @@ public interface UserAPI {
             description = "Возвращает информацию о пользователе по его уникальному идентификатору. " +
                     "Доступно администраторам или самому пользователю"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Информация о пользователе",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or @userSecurity.isSelf(#id)")
     ResponseEntity<UserResponse> getUserById(
@@ -49,6 +62,14 @@ public interface UserAPI {
             summary = "Создать нового пользователя",
             description = "Регистрация нового пользователя в базе данных. Доступно только администраторам"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Пользователь успешно создан",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Пользователь с такой почтой уже существует",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<UserResponse> createUser(
@@ -60,6 +81,12 @@ public interface UserAPI {
             description = "Обновление профиля, департамента или роли пользователя. Обновляются только переданные " +
                     "поля, остальные значения сохраняются. Доступно только администраторам"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Информация о пользователе после обновления",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<UserResponse> updateUser(
@@ -74,6 +101,11 @@ public interface UserAPI {
             summary = "Удалить пользователя",
             description = "Удаление или деактивация пользователя. Доступно только администраторам"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Пользователь успешно удалён"),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<Void> deleteUser(
