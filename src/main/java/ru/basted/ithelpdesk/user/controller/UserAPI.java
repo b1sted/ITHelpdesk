@@ -33,8 +33,14 @@ public interface UserAPI {
             summary = "Получить список всех пользователей",
             description = "Возвращает список всех зарегистрированных пользователей. Доступно только администраторам"
     )
-    @ApiResponse(responseCode = "200", description = "Список пользователей",
-            content = @Content(schema = @Schema(implementation = UserResponse.class)))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Список пользователей",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<List<UserResponse>> getAllUsers();
@@ -47,6 +53,10 @@ public interface UserAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о пользователе",
                     content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -67,6 +77,10 @@ public interface UserAPI {
                     content = @Content(schema = @Schema(implementation = UserResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "409", description = "Пользователь с такой почтой уже существует",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -84,6 +98,12 @@ public interface UserAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о пользователе после обновления",
                     content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -103,6 +123,10 @@ public interface UserAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Пользователь успешно удалён"),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })

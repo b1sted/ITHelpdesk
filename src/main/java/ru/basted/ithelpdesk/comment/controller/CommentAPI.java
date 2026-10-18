@@ -34,6 +34,8 @@ public interface CommentAPI {
                     content = @Content(schema = @Schema(implementation = CommentResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "409", description = "Нельзя комментировать закрытую заявку",
@@ -55,6 +57,8 @@ public interface CommentAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список комментариев",
                     content = @Content(schema = @Schema(implementation = CommentResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })

@@ -33,8 +33,12 @@ public interface CategoryAPI {
             summary = "Получить список всех категорий",
             description = "Возвращает список всех зарегистрированных категорий инцидентов"
     )
-    @ApiResponse(responseCode = "200", description = "Список категорий",
-            content = @Content(schema = @Schema(implementation = CategoryResponse.class)))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Список категорий",
+                    content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @GetMapping
     ResponseEntity<List<CategoryResponse>> getAllCategories();
 
@@ -46,6 +50,8 @@ public interface CategoryAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о категории",
                     content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Категория не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -65,6 +71,10 @@ public interface CategoryAPI {
                     content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "409", description = "Категория с таким именем уже существует",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -81,6 +91,10 @@ public interface CategoryAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Имя категории успешно изменено"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Категория не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -101,6 +115,10 @@ public interface CategoryAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Категория успешно удалена"),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Категория не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
