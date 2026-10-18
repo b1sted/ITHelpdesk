@@ -16,14 +16,18 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import ru.basted.ithelpdesk.user.repository.UserRepository;
+
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -39,16 +43,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Jwt jwt = jwtService.decode(token);
                 String email = jwt.getSubject();
+                Object uidClaim = jwt.getClaim("uid");
                 String role = jwt.getClaimAsString("role");
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                email,
-                                null,
-                                List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                        );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (uidClaim instanceof Number uid) {
+                    Long userId = uid.longValue();
+                    if (userRepository.findById(userId)
+                            .filter(user -> user.getEmail().equals(email))
+                            .isPresent()) {
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        email,
+                                        null,
+                                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                                );
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                }
+                SecurityContextHolder.clearContext();
             } catch (RuntimeException ex) {
                 SecurityContextHolder.clearContext();
             }

@@ -26,12 +26,18 @@ import ru.basted.ithelpdesk.user.entity.User;
 public class JwtService {
     private static final String ISSUER = "ithelpdesk";
     private static final long EXPIRATION_HOURS = 24;
+    private static final int MIN_SECRET_LENGTH = 32;
 
     private final NimbusJwtEncoder encoder;
     private final JwtDecoder decoder;
 
     @SuppressWarnings("removal")
     public JwtService(@Value("${app.jwt.secret}") String secret) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Длина JWT-секрета должна быть не менее " + MIN_SECRET_LENGTH + " байт"
+            );
+        }
         SecretKeySpec key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         ImmutableSecret<SecurityContext> secretSource = new ImmutableSecret<>(key);
         this.encoder = new NimbusJwtEncoder(secretSource);
@@ -47,6 +53,7 @@ public class JwtService {
                 .issuedAt(now)
                 .expiresAt(now.plus(EXPIRATION_HOURS, ChronoUnit.HOURS))
                 .subject(user.getEmail())
+                .claim("uid", user.getId())
                 .claim("role", user.getRole().name())
                 .build();
 
