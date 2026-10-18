@@ -171,6 +171,7 @@ The system communicates with users and developers **exclusively in Russian**.
 * **NotFound:** Missing entities must throw `core.exception.NotFoundException` (maps to `404 Not Found`).
 * **Conflict:** Duplicate or invalid state transitions must throw `core.exception.ConflictException` (maps to `409 Conflict`).
 * **Bad Request:** Invalid arguments and validation failures map to `400 Bad Request` via the global `core.exception.ApiExceptionHandler`.
+* **Resource Masking:** Unauthenticated requests, invalid tokens and insufficient-role calls all map to `404 Not Found` with the generic `{"message": "Ресурс не найден"}` body (see section 7.1).
 * **Current User:** The authenticated principal is resolved through the `core.security.CurrentUser` component; ownership checks (ticket author, assignee) must be enforced in the service layer.
 * **No Lombok:** Entities expose explicit accessors and beans rely on constructor injection.
 
@@ -186,6 +187,8 @@ Base Path: `/api/v1`
 | `POST` | `/auth/login` | Authenticate and obtain a JWT token | Public | `200 OK`, `404 Not Found` |
 
 All authenticated endpoints expect the JWT token in the `Authorization: Bearer <token>` header. The token is issued with a 24-hour validity and encodes the `role` of the user (used by `hasRole(...)` checks). Public paths always include `/auth/login` and the Swagger UI paths.
+
+**Resource Masking:** All API paths (except `/auth/login` and Swagger paths) are protected. When a request is unauthenticated, carries an invalid token, or lacks the required role, the server responds with `404 Not Found` and a generic `{"message": "Ресурс не найден"}` body — never `401` or `403` — so that the existence of resources is not disclosed. Authorized clients receive normal statuses (`200`, `201`, `204`, `400`, `404` for validation/missing, `409` for conflicts).
 
 ### 7.2. Tickets (Core Domain Workflows)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
