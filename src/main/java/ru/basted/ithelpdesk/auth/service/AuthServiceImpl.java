@@ -1,6 +1,5 @@
 package ru.basted.ithelpdesk.auth.service;
 
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,11 +7,14 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.basted.ithelpdesk.auth.dto.AuthResponse;
 import ru.basted.ithelpdesk.auth.dto.LoginRequest;
 import ru.basted.ithelpdesk.auth.security.JwtService;
+import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+    private static final String INVALID_CREDENTIALS = "Неверные учётные данные";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -31,10 +33,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest loginRequest) {
         User user = userRepository.findByEmail(loginRequest.email())
-                .orElseThrow(() -> new BadCredentialsException("Неверные учётные данные"));
+                .orElseThrow(() -> new NotFoundException(INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
-            throw new BadCredentialsException("Неверные учётные данные");
+            throw new NotFoundException(INVALID_CREDENTIALS);
         }
 
         String token = jwtService.generateToken(user);

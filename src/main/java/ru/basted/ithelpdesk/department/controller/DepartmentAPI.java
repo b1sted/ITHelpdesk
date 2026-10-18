@@ -33,8 +33,12 @@ public interface DepartmentAPI {
             summary = "Получить список департаментов, зарегистрированных в базе данных",
             description = "Возвращает список всех зарегистрированных департаментов с информацией о них."
     )
-    @ApiResponse(responseCode = "200", description = "Список департаментов",
-            content = @Content(schema = @Schema(implementation = DepartmentResponse.class)))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Список департаментов",
+                    content = @Content(schema = @Schema(implementation = DepartmentResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @GetMapping
     ResponseEntity<List<DepartmentResponse>> getAllDepartments();
 
@@ -46,6 +50,8 @@ public interface DepartmentAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о департаменте",
                     content = @Content(schema = @Schema(implementation = DepartmentResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Департамент не найден",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -65,6 +71,10 @@ public interface DepartmentAPI {
                     content = @Content(schema = @Schema(implementation = DepartmentResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "409", description = "Департамент с таким именем уже существует",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -81,6 +91,10 @@ public interface DepartmentAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Имя департамента успешно изменено"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Департамент не найден",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -101,6 +115,10 @@ public interface DepartmentAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Департамент успешно удалён"),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Департамент не найден",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })

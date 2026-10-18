@@ -39,6 +39,10 @@ public interface TicketAPI {
                     content = @Content(schema = @Schema(implementation = TicketResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль EMPLOYEE)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Указанная категория не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -52,8 +56,12 @@ public interface TicketAPI {
             summary = "Получить список заявок",
             description = "Возвращает список заявок. Можно отфильтровать по статусу"
     )
-    @ApiResponse(responseCode = "200", description = "Список заявок",
-            content = @Content(schema = @Schema(implementation = TicketResponse.class)))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Список заявок",
+                    content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @GetMapping
     ResponseEntity<List<TicketResponse>> getAllTickets(
             @Parameter(description = "Фильтр по статусу заявки", required = false)
@@ -67,6 +75,8 @@ public interface TicketAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Полная информация о заявке",
                     content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
@@ -84,6 +94,10 @@ public interface TicketAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Заявка назначена и переведена в статус IN_PROGRESS",
                     content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль AGENT)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "409", description = "Заявка не находится в статусе NEW",
@@ -105,6 +119,10 @@ public interface TicketAPI {
             @ApiResponse(responseCode = "200", description = "Статус заявки успешно изменён",
                     content = @Content(schema = @Schema(implementation = TicketResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса или недопустимый целевой статус",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуются роли EMPLOYEE или AGENT)",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
