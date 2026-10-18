@@ -158,6 +158,9 @@ ru.basted.ithelpdesk.<feature>/
 * Passwords must be encoded using `BCryptPasswordEncoder`.
 * Protect endpoints using declarative method security: `@PreAuthorize("hasRole('ADMIN')")`.
 * Ensure ownership checks: Only the creator of a ticket can confirm closing or reopening it.
+* **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists.
+* **Login rate limit:** Failed login attempts per email are limited (`app.rate-limit.max-attempts`, default 5 per 5 minutes) and respond `429 Too Many Requests`.
+* **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
 
 ### 6.5. OpenAPI (Swagger) Documentation, Validation & Localization Rules
 The system communicates with users and developers **exclusively in Russian**.
