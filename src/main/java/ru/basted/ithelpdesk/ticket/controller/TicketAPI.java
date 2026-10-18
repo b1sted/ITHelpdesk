@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -30,21 +32,73 @@ import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 
 @Tag(name = "Заявки", description = "Управление заявками и инцидентами")
 public interface TicketAPI {
+    String TICKET_JSON = """
+            {
+              "id": 1,
+              "title": "Не работает корпоративная почта",
+              "description": "С утра не могу войти в почтовый клиент",
+              "status": "IN_PROGRESS",
+              "createdAt": "2026-10-18T10:15:30",
+              "creator": {
+                "id": 1,
+                "fullName": "Иванов Иван Иванович",
+                "email": "ivanov.ii@company.ru",
+                "departmentName": "Департамент тестирования программных продуктов"
+              },
+              "assignee": {
+                "id": 2,
+                "fullName": "Петров Пётр Петрович",
+                "email": "petrov.pp@company.ru",
+                "departmentName": "Департамент разработки"
+              },
+              "categoryName": "Программное обеспечение",
+              "comments": [
+                {
+                  "id": 1,
+                  "text": "Принял заявку в работу, проверяю почтовый сервер",
+                  "createdAt": "2026-10-18T10:20:00",
+                  "ticketId": 1,
+                  "author": {
+                    "id": 2,
+                    "fullName": "Петров Пётр Петрович",
+                    "email": "petrov.pp@company.ru",
+                    "departmentName": "Департамент разработки"
+                  }
+                }
+              ]
+            }""";
+    String TICKET_LIST_JSON = "[" + TICKET_JSON + "]";
+    String ERROR_401_JSON = "{\"message\":\"Требуется аутентификация\"}";
+    String ERROR_403_JSON = "{\"message\":\"Недостаточно прав для выполнения запроса\"}";
+    String ERROR_404_JSON = "{\"message\":\"Не найдена заявка с ID 99\"}";
+    String ERROR_400_JSON = "{\"message\":\"Заголовок заявки не может быть пустым\"}";
+    String ERROR_409_JSON = "{\"message\":\"Нельзя взять в работу заявку в статусе RESOLVED\"}";
+
     @Operation(
             summary = "Создать новую заявку",
             description = "Регистрация новой заявки. Доступно только сотрудникам"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Заявка успешно создана",
-                    content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TicketResponse.class),
+                            examples = @ExampleObject(value = TICKET_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_400_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль EMPLOYEE)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Указанная категория не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = "{\"message\":\"Не найдена категория с ID 99\"}")))
     })
     @PostMapping
     @PreAuthorize("hasRole('EMPLOYEE')")
@@ -58,9 +112,13 @@ public interface TicketAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список заявок",
-                    content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TicketResponse.class),
+                            examples = @ExampleObject(value = TICKET_LIST_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON)))
     })
     @GetMapping
     ResponseEntity<List<TicketResponse>> getAllTickets(
@@ -74,11 +132,17 @@ public interface TicketAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Полная информация о заявке",
-                    content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TicketResponse.class),
+                            examples = @ExampleObject(value = TICKET_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @GetMapping("/{id}")
     ResponseEntity<TicketResponse> getTicketById(
@@ -93,15 +157,25 @@ public interface TicketAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Заявка назначена и переведена в статус IN_PROGRESS",
-                    content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TicketResponse.class),
+                            examples = @ExampleObject(value = TICKET_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль AGENT)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON))),
             @ApiResponse(responseCode = "409", description = "Заявка не находится в статусе NEW",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_409_JSON)))
     })
     @PatchMapping("/{id}/assign")
     @PreAuthorize("hasRole('AGENT')")
@@ -117,17 +191,29 @@ public interface TicketAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Статус заявки успешно изменён",
-                    content = @Content(schema = @Schema(implementation = TicketResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TicketResponse.class),
+                            examples = @ExampleObject(value = TICKET_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса или недопустимый целевой статус",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_400_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуются роли EMPLOYEE или AGENT)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Заявка не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON))),
             @ApiResponse(responseCode = "409", description = "Недопустимый переход состояния или недостаточно прав",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = "{\"message\":\"Закрыть заявку можно только из статуса RESOLVED\"}")))
     })
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'AGENT')")

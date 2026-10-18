@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -29,15 +31,31 @@ import ru.basted.ithelpdesk.core.exception.ApiError;
 
 @Tag(name = "Категории", description = "Управление категориями инцидентов")
 public interface CategoryAPI {
+    String CATEGORY_JSON = """
+            {
+              "id": 1,
+              "name": "Оборудование"
+            }""";
+    String CATEGORY_LIST_JSON = "[" + CATEGORY_JSON + "]";
+    String ERROR_401_JSON = "{\"message\":\"Требуется аутентификация\"}";
+    String ERROR_403_JSON = "{\"message\":\"Недостаточно прав для выполнения запроса\"}";
+    String ERROR_404_JSON = "{\"message\":\"Не найдена категория с ID 99\"}";
+    String ERROR_400_JSON = "{\"message\":\"Имя категории не может быть пустым\"}";
+    String ERROR_409_JSON = "{\"message\":\"Категория с именем Дубликат уже существует в базе данных\"}";
+
     @Operation(
             summary = "Получить список всех категорий",
             description = "Возвращает список всех зарегистрированных категорий инцидентов"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список категорий",
-                    content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CategoryResponse.class),
+                            examples = @ExampleObject(value = CATEGORY_LIST_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON)))
     })
     @GetMapping
     ResponseEntity<List<CategoryResponse>> getAllCategories();
@@ -49,11 +67,17 @@ public interface CategoryAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о категории",
-                    content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CategoryResponse.class),
+                            examples = @ExampleObject(value = CATEGORY_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "404", description = "Категория не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @GetMapping("/{id}")
     ResponseEntity<CategoryResponse> getCategoryById(
@@ -68,15 +92,25 @@ public interface CategoryAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Категория успешно создана",
-                    content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CategoryResponse.class),
+                            examples = @ExampleObject(value = CATEGORY_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_400_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "409", description = "Категория с таким именем уже существует",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_409_JSON)))
     })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -91,13 +125,21 @@ public interface CategoryAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Имя категории успешно изменено"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_400_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Категория не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -116,11 +158,17 @@ public interface CategoryAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Категория успешно удалена"),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Категория не найдена",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

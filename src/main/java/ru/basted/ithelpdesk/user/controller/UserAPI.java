@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -29,17 +31,38 @@ import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 
 @Tag(name = "Пользователи", description = "Управление пользователями и каталогом сотрудников")
 public interface UserAPI {
+    String USER_JSON = """
+            {
+              "id": 1,
+              "fullName": "Иванов Иван Иванович",
+              "email": "ivanov.ii@company.ru",
+              "role": "EMPLOYEE",
+              "departmentName": "Департамент тестирования программных продуктов"
+            }""";
+    String USER_LIST_JSON = "[" + USER_JSON + "]";
+    String ERROR_401_JSON = "{\"message\":\"Требуется аутентификация\"}";
+    String ERROR_403_JSON = "{\"message\":\"Недостаточно прав для выполнения запроса\"}";
+    String ERROR_404_JSON = "{\"message\":\"Не найден пользователь с ID 99\"}";
+    String ERROR_400_JSON = "{\"message\":\"Некорректный формат электронной почты\"}";
+    String ERROR_409_JSON = "{\"message\":\"Пользователь с электронной почтой ivanov.ii@company.ru уже существует\"}";
+
     @Operation(
             summary = "Получить список всех пользователей",
             description = "Возвращает список всех зарегистрированных пользователей. Доступно только администраторам"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список пользователей",
-                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = UserResponse.class),
+                            examples = @ExampleObject(value = USER_LIST_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON)))
     })
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -52,13 +75,21 @@ public interface UserAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о пользователе",
-                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = UserResponse.class),
+                            examples = @ExampleObject(value = USER_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or @userSecurity.isSelf(#id)")
@@ -74,15 +105,25 @@ public interface UserAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Пользователь успешно создан",
-                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = UserResponse.class),
+                            examples = @ExampleObject(value = USER_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_400_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "409", description = "Пользователь с такой почтой уже существует",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_409_JSON)))
     })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -97,15 +138,25 @@ public interface UserAPI {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Информация о пользователе после обновления",
-                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = UserResponse.class),
+                            examples = @ExampleObject(value = USER_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_400_JSON))),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -124,11 +175,17 @@ public interface UserAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Пользователь успешно удалён"),
             @ApiResponse(responseCode = "401", description = "Требуется аутентификация",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_401_JSON))),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав (требуется роль ADMIN)",
-                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_403_JSON))),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден",
-                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(value = ERROR_404_JSON)))
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
