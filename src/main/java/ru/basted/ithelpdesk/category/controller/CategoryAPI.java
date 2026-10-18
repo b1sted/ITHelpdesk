@@ -16,11 +16,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import ru.basted.ithelpdesk.category.dto.CategoryChangeName;
 import ru.basted.ithelpdesk.category.dto.CategoryCreateRequest;
 import ru.basted.ithelpdesk.category.dto.CategoryResponse;
+import ru.basted.ithelpdesk.core.exception.ApiError;
 
 @Tag(name = "Категории", description = "Управление категориями инцидентов")
 public interface CategoryAPI {
@@ -28,6 +33,8 @@ public interface CategoryAPI {
             summary = "Получить список всех категорий",
             description = "Возвращает список всех зарегистрированных категорий инцидентов"
     )
+    @ApiResponse(responseCode = "200", description = "Список категорий",
+            content = @Content(schema = @Schema(implementation = CategoryResponse.class)))
     @GetMapping
     ResponseEntity<List<CategoryResponse>> getAllCategories();
 
@@ -36,6 +43,12 @@ public interface CategoryAPI {
             description = "Возвращает информацию о конкретной категории, если она зарегистрирована в базе данных, " +
                     "по её уникальному идентификатору"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Информация о категории",
+                    content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Категория не найдена",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @GetMapping("/{id}")
     ResponseEntity<CategoryResponse> getCategoryById(
             @Parameter(description = "Уникальный идентификатор категории", required = true, example = "1")
@@ -47,6 +60,14 @@ public interface CategoryAPI {
             summary = "Создать новую категорию",
             description = "Создание записи в базе данных о новой категории инцидентов. Доступно только администраторам"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Категория успешно создана",
+                    content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Категория с таким именем уже существует",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<CategoryResponse> createCategory(
@@ -57,6 +78,13 @@ public interface CategoryAPI {
             summary = "Смена имени категории",
             description = "Изменение имени существующей категории. Доступна только администраторам."
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Имя категории успешно изменено"),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "404", description = "Категория не найдена",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<Void> updateName(
@@ -71,6 +99,11 @@ public interface CategoryAPI {
             summary = "Удаление категории",
             description = "Удаление категории. Доступна только администраторам."
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Категория успешно удалена"),
+            @ApiResponse(responseCode = "404", description = "Категория не найдена",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ResponseEntity<Void> deleteCategory(
