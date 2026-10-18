@@ -29,7 +29,7 @@ public interface AuthAPI {
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "401", description = "Неверные учётные данные",
+            @ApiResponse(responseCode = "404", description = "Неверные учётные данные",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/login")

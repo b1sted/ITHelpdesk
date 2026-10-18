@@ -183,7 +183,7 @@ Base Path: `/api/v1`
 ### 7.1. Authentication
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
-| `POST` | `/auth/login` | Authenticate and obtain a JWT token | Public | `200 OK`, `401 Unauthorized` |
+| `POST` | `/auth/login` | Authenticate and obtain a JWT token | Public | `200 OK`, `404 Not Found` |
 
 All authenticated endpoints expect the JWT token in the `Authorization: Bearer <token>` header. The token is issued with a 24-hour validity and encodes the `role` of the user (used by `hasRole(...)` checks). Public paths always include `/auth/login` and the Swagger UI paths.
 
