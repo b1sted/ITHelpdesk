@@ -1,0 +1,65 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Navbar } from './components/Navbar';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CreateTicketPage } from './pages/CreateTicketPage';
+import { LoginPage } from './pages/LoginPage';
+import { TicketDetailPage } from './pages/TicketDetailPage';
+import { TicketListPage } from './pages/TicketListPage';
+
+function AppRoutes() {
+  const { token } = useAuth();
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={token ? <Navigate to="/" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <TicketListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tickets/new"
+        element={
+          <ProtectedRoute>
+            <CreateTicketPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tickets/:id"
+        element={
+          <ProtectedRoute>
+            <TicketDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function Layout() {
+  return (
+    <div className="min-h-screen bg-slate-100">
+      <Navbar />
+      <AppRoutes />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Layout />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
