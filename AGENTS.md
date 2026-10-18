@@ -307,6 +307,7 @@ export interface TicketResponse {
 ## 9. Build & Verification Commands
 * **Start local PostgreSQL:** `docker compose up -d`
 * **Run backend application:** `./gradlew bootRun` (serves REST API and Swagger UI at `http://localhost:8080/swagger-ui.html`)
+* **Automated seeding:** On first startup `core.config.DBInitializer` idempotently creates the `IT Service Desk` department, four default incident categories and the admin account `admin@company.ru` / `Admin2024!` (password overridable via `ADMIN_PASSWORD`, full name via `ADMIN_FULL_NAME`).
 * **Run test suite:** `./gradlew test`
 * **Build backend archive:** `./gradlew build -x test`
 * **Run frontend dev server:** `cd frontend && npm run dev`
