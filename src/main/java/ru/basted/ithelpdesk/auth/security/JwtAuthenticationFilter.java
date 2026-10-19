@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.jspecify.annotations.NonNull;
 
 import ru.basted.ithelpdesk.user.repository.UserRepository;
 
@@ -32,9 +33,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
     ) throws ServletException, java.io.IOException {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith(BEARER_PREFIX)

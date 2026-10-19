@@ -14,6 +14,7 @@ import ru.basted.ithelpdesk.comment.repository.CommentRepository;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
+import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
@@ -109,7 +110,7 @@ public class CommentServiceImpl implements CommentService {
 
     private String departmentName(User user) {
         return departmentRepository.findById(user.getDepartmentId())
-                .map(department -> department.getName())
+                .map(Department::getName)
                 .orElse(null);
     }
 }

@@ -2,18 +2,19 @@ package ru.basted.ithelpdesk.ticket.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
 import ru.basted.ithelpdesk.comment.dto.CommentResponse;
 import ru.basted.ithelpdesk.comment.service.CommentService;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
+import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
@@ -193,7 +194,7 @@ public class TicketServiceImpl implements TicketService {
                 : toSummary(ticket.getAssigneeId());
 
         String categoryName = categoryRepository.findById(ticket.getCategoryId())
-                .map(category -> category.getName())
+                .map(Category::getName)
                 .orElse(null);
 
         List<CommentResponse> comments = withComments
@@ -226,7 +227,7 @@ public class TicketServiceImpl implements TicketService {
 
     private String departmentName(User user) {
         return departmentRepository.findById(user.getDepartmentId())
-                .map(department -> department.getName())
+                .map(Department::getName)
                 .orElse(null);
     }
 }
