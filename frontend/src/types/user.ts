@@ -23,6 +23,13 @@ export interface UserCreateRequest {
   departmentId: number;
 }
 
+export interface UserUpdateRequest {
+  fullName?: string;
+  email?: string;
+  role?: UserRole;
+  departmentId?: number;
+}
+
 export interface DepartmentResponse {
   id: number;
   name: string;
