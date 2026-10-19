@@ -5,6 +5,7 @@ import type { CommentResponse } from '../types/ticket';
 interface CommentThreadProps {
   comments: CommentResponse[];
   onAddComment: (text: string) => Promise<void>;
+  canComment?: boolean;
 }
 
 function formatDate(value: string): string {
@@ -17,7 +18,7 @@ function formatDate(value: string): string {
   });
 }
 
-export function CommentThread({ comments, onAddComment }: CommentThreadProps) {
+export function CommentThread({ comments, onAddComment, canComment = true }: CommentThreadProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,23 +53,25 @@ export function CommentThread({ comments, onAddComment }: CommentThreadProps) {
           </div>
         ))}
       </div>
-      <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
-        <input
-          type="text"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder="Написать комментарий..."
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={submitting || !text.trim()}
-          className="flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Send className="h-4 w-4" />
-          Отправить
-        </button>
-      </form>
+      {canComment && (
+        <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Написать комментарий..."
+            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={submitting || !text.trim()}
+            className="flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+            Отправить
+          </button>
+        </form>
+      )}
     </div>
   );
 }
