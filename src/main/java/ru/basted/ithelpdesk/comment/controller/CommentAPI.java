@@ -72,7 +72,7 @@ public interface CommentAPI {
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_409_JSON)))
     })
-    @PostMapping
+    @PostMapping("/{ticketId}/comments")
     ResponseEntity<CommentResponse> addComment(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")
@@ -99,7 +99,7 @@ public interface CommentAPI {
                                     @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
                             }))
     })
-    @GetMapping
+    @GetMapping("/{ticketId}/comments")
     ResponseEntity<List<CommentResponse>> getCommentsByTicket(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")
