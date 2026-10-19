@@ -1,0 +1,15 @@
+.git
+.gitignore
+.idea
+*.iml
+.gradle
+build
+**/build
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+docker-compose*.yml
+Dockerfile*

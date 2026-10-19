@@ -8,8 +8,9 @@
 <p align="center">
     <img src="https://img.shields.io/badge/Status-In_Development-yellow?style=flat-square" alt="Status">
     <img src="https://img.shields.io/badge/Java-21-blue?style=flat-square&logo=openjdk" alt="Java 21">
-    <img src="https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=flat-square&logo=spring" alt="Spring Boot">
+    <img src="https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?style=flat-square&logo=spring" alt="Spring Boot">
     <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql" alt="PostgreSQL">
+    <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React">
 </p>
 <hr>
 
@@ -19,9 +20,59 @@ A coursework project aimed at developing an internal Service Desk / Helpdesk app
 
 The system automates the intake of employee issues, facilitates transparent ticket assignment for support specialists, and tracks incident lifecycles through a strict state machine.
 
-## 🛠 Planned Tech Stack
+## 🛠 Tech Stack
 
-* **Backend:** Java 21, Spring Boot 3.x (Spring Web, Spring Data JPA, Spring Security)
-* **Database:** PostgreSQL, Hibernate
-* **API Documentation:** Springdoc OpenAPI (Swagger UI)
-* **Frontend:** HTML5, CSS3, JavaScript (Fetch API)
+* **Backend:** Java 21, Spring Boot 4.1 (Spring Web, Spring Data JPA, Spring Security, Validation)
+* **Database:** PostgreSQL 16, Hibernate ORM
+* **API Documentation:** Springdoc OpenAPI 3 (Swagger UI)
+* **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
+
+## 🚀 Development
+
+```bash
+# 1. Start PostgreSQL
+docker compose up -d
+
+# 2. Run backend (REST API + Swagger UI on http://localhost:8080/swagger-ui.html)
+./gradlew bootRun
+
+# 3. Run frontend (SPA on http://localhost:5173, proxies /api to :8080)
+cd frontend && npm install && npm run dev
+```
+
+On first startup the backend seeds the `IT Service Desk` department, four default
+categories and the admin account `admin@company.ru` / `Admin2024!`
+(overridable via `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_FULL_NAME`).
+
+## 📦 Production
+
+```bash
+# 1. Configure secrets (copy the template and edit)
+cp .env.example .env
+
+# 2. Build images and start the whole stack (nginx + backend + postgres)
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+The nginx container serves the built SPA on port 8080 and proxies `/api`
+(and Swagger UI) to the backend container.
+
+Required env vars (see `.env.example`):
+
+| Variable | Description |
+|:---|:---|
+| `DB_PASSWORD` | PostgreSQL password |
+| `JWT_SECRET` | HMAC secret, **must be ≥ 32 bytes** (`openssl rand -base64 48`) |
+| `CORS_ALLOWED_ORIGINS` | Allowed frontend origins for the API |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_FULL_NAME` | Initial admin account |
+
+## 📚 API
+
+* Swagger UI: `http://localhost:8080/swagger-ui.html`
+* OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+## 🔐 Security Notes
+
+* JWT (HS256, 24 h) with user re-validation on every request.
+* Login rate limiting (5 attempts / 5 min → `429`).
+* Protected resources are masked as `404` for unauthenticated / unauthorized requests.
