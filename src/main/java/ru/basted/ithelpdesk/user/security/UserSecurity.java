@@ -14,6 +14,7 @@ public class UserSecurity {
         this.userRepository = userRepository;
     }
 
+    @SuppressWarnings("unused")
     public boolean isSelf(Long id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {

@@ -12,7 +12,7 @@ import ru.basted.ithelpdesk.comment.dto.CommentResponse;
 import ru.basted.ithelpdesk.comment.service.CommentService;
 
 @RestController
-@RequestMapping("/api/v1/tickets/{ticketId}/comments")
+@RequestMapping("/api/v1/tickets")
 public class CommentController implements CommentAPI {
     private final CommentService service;
 

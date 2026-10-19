@@ -8,7 +8,6 @@ import ru.basted.ithelpdesk.comment.entity.Comment;
 
 @Mapper
 public interface CommentMapper {
-    @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "ticketId", ignore = true)
     @Mapping(target = "authorId", ignore = true)

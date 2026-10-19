@@ -8,7 +8,6 @@ import ru.basted.ithelpdesk.ticket.entity.Ticket;
 
 @Mapper
 public interface TicketMapper {
-    @Mapping(target = "id", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "creatorId", ignore = true)

@@ -120,7 +120,7 @@ public interface TicketAPI {
     })
     @GetMapping
     ResponseEntity<List<TicketResponse>> getAllTickets(
-            @Parameter(description = "Фильтр по статусу заявки", required = false)
+            @Parameter(description = "Фильтр по статусу заявки")
             @RequestParam(required = false) TicketStatus status
     );
 
