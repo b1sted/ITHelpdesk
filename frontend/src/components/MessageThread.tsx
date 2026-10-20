@@ -6,6 +6,7 @@ interface MessageThreadProps {
   messages: MessageResponse[];
   onAddMessage: (text: string) => Promise<void>;
   canMessage?: boolean;
+  messageHint?: string;
 }
 
 function formatDate(value: string): string {
@@ -18,7 +19,12 @@ function formatDate(value: string): string {
   });
 }
 
-export function MessageThread({ messages, onAddMessage, canMessage = true }: MessageThreadProps) {
+export function MessageThread({
+  messages,
+  onAddMessage,
+  canMessage = true,
+  messageHint,
+}: MessageThreadProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,6 +77,9 @@ export function MessageThread({ messages, onAddMessage, canMessage = true }: Mes
             Отправить
           </button>
         </form>
+      )}
+      {!canMessage && messageHint && (
+        <p className="mt-4 text-sm text-slate-400">{messageHint}</p>
       )}
     </div>
   );

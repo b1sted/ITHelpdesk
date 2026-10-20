@@ -95,7 +95,12 @@ const isAgent = user?.role === 'AGENT';
     (ticket.status === 'NEW' ||
       (isAssignee && ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status)));
   const canAuthorWork = isAuthor && ticket.status === 'RESOLVED';
-  const canMessage = !['CLOSED'].includes(ticket.status);
+  const isClosed = ticket.status === 'CLOSED';
+  const canMessage = !isClosed && (!isAgent || isAssignee);
+  const messageHint =
+    isAgent && !isAssignee && !isClosed
+      ? 'Писать сообщения может только специалист, взявший заявку в работу.'
+      : undefined;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -172,6 +177,7 @@ const isAgent = user?.role === 'AGENT';
           messages={ticket.messages}
           onAddMessage={handleAddMessage}
           canMessage={canMessage}
+          messageHint={messageHint}
         />
       </div>
     </div>
