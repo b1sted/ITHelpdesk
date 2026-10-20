@@ -14,6 +14,14 @@
 </p>
 <hr>
 
+<br>
+<p align="center">
+  <img src=".github/assets/demo.png" alt="IT Helpdesk System interface" width="600"/>
+</p>
+<br>
+
+<hr>
+
 ## 📌 About
 
 A coursework project aimed at developing an internal Service Desk / Helpdesk application for corporate IT support teams.
@@ -30,18 +38,19 @@ The system automates the intake of employee issues, facilitates transparent tick
 ## 🚀 Development
 
 ```bash
-# 1. Start PostgreSQL
+# 1. Clone the repository and enter the project directory
+git clone https://github.com/b1sted/ItHelpdesk.git
+cd ItHelpdesk
+
+# 2. Start PostgreSQL
 docker compose up -d
 
-# 2. Run backend (REST API + Swagger UI on http://localhost:8080/swagger-ui.html)
+# 3. Run backend (REST API + Swagger UI on http://localhost:8080/swagger-ui.html)
 ./gradlew bootRun
 
-# 3. Run frontend (SPA on http://localhost:5173, proxies /api to :8080)
+# 4. Run frontend (SPA on http://localhost:5173, proxies /api to :8080)
 cd frontend && npm ci && npm run dev
 ```
-
-> Upgrading from an older checkout? Run `docker compose down --remove-orphans`
-> once to drop the legacy named `ithelpdesk-postgres` container.
 
 On first startup the backend seeds the `IT Service Desk` department, four default
 categories and the admin account `admin@company.ru` / `Admin2024!`
@@ -95,3 +104,8 @@ cd frontend && npm run build   # type-check + production bundle
 * Login rate limiting (5 attempts / 5 min → `429`).
 * Protected resources are masked as `404` for unauthenticated / unauthorized requests.
 * Production containers run as non-root; PostgreSQL stays on an internal Docker network.
+
+## 📄 License
+
+This project is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html).
+See the [LICENSE](LICENSE) file for the full text.
