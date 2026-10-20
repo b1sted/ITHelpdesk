@@ -113,8 +113,6 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
     * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
     * `author_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
 
-> **Legacy schema:** startup script `src/main/resources/schema.sql` idempotently renames an existing `comments` table to `messages` so that pre-rename installations keep their history.
-
 ---
 
 ## 6. Backend Architecture Guidelines
