@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { getErrorMessage } from '../api/errorMessage';
 import {
   addMessage,
   assignTicket,
@@ -30,19 +31,38 @@ export function TicketDetailPage() {
   const [ticket, setTicket] = useState<TicketResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [reopenReason, setReopenReason] = useState('');
 
-  const loadTicket = useCallback(() => {
-    setLoading(true);
-    getTicket(ticketId)
-      .then(setTicket)
-      .catch(() => setError('Не удалось загрузить заявку'))
-      .finally(() => setLoading(false));
+  const refresh = useCallback(async () => {
+    const updated = await getTicket(ticketId);
+    setTicket(updated);
   }, [ticketId]);
 
   useEffect(() => {
-    loadTicket();
-  }, [loadTicket]);
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    getTicket(ticketId)
+      .then((data) => {
+        if (!cancelled) {
+          setTicket(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Не удалось загрузить заявку');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ticketId]);
 
   if (loading) {
     return <p className="py-10 text-center text-sm text-slate-400">Загрузка...</p>;
@@ -62,33 +82,41 @@ export function TicketDetailPage() {
     );
   }
 
-const isAgent = user?.role === 'AGENT';
-  const isAuthor = user?.email === ticket.creator.email;
-  const isAssignee = user?.email === ticket.assignee?.email;
-
-  const refresh = async () => {
-    const updated = await getTicket(ticket.id);
-    setTicket(updated);
+  const runAction = async (action: () => Promise<unknown>) => {
+    setActionError('');
+    try {
+      await action();
+      await refresh();
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, 'Не удалось выполнить действие'));
+    }
   };
 
-  const handleAssign = async () => {
-    await assignTicket(ticket.id);
-    await refresh();
-  };
+  const handleAssign = () => runAction(() => assignTicket(ticket.id));
 
-  const handleStatus = async (status: 'WAITING_USER' | 'RESOLVED' | 'CLOSED' | 'IN_PROGRESS') => {
-    await changeTicketStatus(ticket.id, {
-      status,
-      reason: status === 'IN_PROGRESS' ? reopenReason : undefined,
+  const handleStatus = (status: 'WAITING_USER' | 'RESOLVED' | 'CLOSED' | 'IN_PROGRESS') =>
+    runAction(async () => {
+      await changeTicketStatus(ticket.id, {
+        status,
+        reason: status === 'IN_PROGRESS' ? reopenReason : undefined,
+      });
+      setReopenReason('');
     });
-    setReopenReason('');
-    await refresh();
-  };
 
   const handleAddMessage = async (text: string) => {
-    await addMessage(ticket.id, text);
-    await refresh();
+    setActionError('');
+    try {
+      await addMessage(ticket.id, text);
+      await refresh();
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, 'Не удалось отправить сообщение'));
+      throw err;
+    }
   };
+
+  const isAgent = user?.role === 'AGENT';
+  const isAuthor = user?.id === ticket.creator.id;
+  const isAssignee = user?.id === ticket.assignee?.id;
 
   const canAgentWork =
     isAgent &&
@@ -143,6 +171,12 @@ const isAgent = user?.role === 'AGENT';
             <div className="font-medium text-slate-700">{formatDate(ticket.createdAt)}</div>
           </div>
         </div>
+
+        {actionError && (
+          <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {actionError}
+          </p>
+        )}
 
         {canAgentWork && <AgentPanel onAssign={handleAssign} onStatus={handleStatus} status={ticket.status} />}
 

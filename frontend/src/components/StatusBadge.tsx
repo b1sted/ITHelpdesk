@@ -1,4 +1,4 @@
-import type { TicketStatus } from '../types/auth';
+import type { TicketStatus } from '../types/ticket';
 
 const statusConfig: Record<TicketStatus, { label: string; classes: string }> = {
   NEW: { label: 'Новая', classes: 'bg-blue-100 text-blue-700' },

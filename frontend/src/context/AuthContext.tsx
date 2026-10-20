@@ -1,9 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { login as loginApi } from '../api/authApi';
 import { profileStorage, tokenStorage } from '../api/client';
 import type { LoginRequest, UserRole } from '../types/auth';
 
 interface UserProfile {
+  id: number;
   email: string;
   fullName: string;
   role: UserRole;
@@ -11,10 +13,11 @@ interface UserProfile {
 
 function loadProfile(): UserProfile | null {
   const stored = profileStorage.get();
-  if (!stored) {
+  if (!stored || typeof stored.id !== 'number') {
     return null;
   }
   return {
+    id: stored.id,
     email: stored.email,
     fullName: stored.fullName,
     role: stored.role as UserRole,
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (data: LoginRequest) => {
     const response = await loginApi(data);
     const profile: UserProfile = {
+      id: response.id,
       email: response.email,
       fullName: response.fullName,
       role: response.role,

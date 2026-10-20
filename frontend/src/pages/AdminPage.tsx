@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Users, Building2, Tags, Plus, Trash2, Pencil } from 'lucide-react';
 import {
   createCategory,
@@ -7,20 +7,20 @@ import {
   deleteCategory,
   deleteDepartment,
   deleteUser,
-  getCategories,
   getDepartments,
   getUsers,
   updateCategory,
   updateDepartment,
   updateUser,
 } from '../api/adminApi';
+import { getErrorMessage } from '../api/errorMessage';
+import { getCategories } from '../api/ticketsApi';
 import { useAuth } from '../context/AuthContext';
-import type { UserResponse } from '../types/user';
+import type { DepartmentResponse, UserResponse } from '../types/user';
 import type { CategoryResponse } from '../types/ticket';
 import type { UserRole } from '../types/auth';
 
 type Tab = 'users' | 'departments' | 'categories';
-type DepartmentRow = { id: number; name: string };
 
 const roleOptions: UserRole[] = ['EMPLOYEE', 'AGENT', 'ADMIN'];
 
@@ -28,6 +28,11 @@ export function AdminPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('users');
   const [error, setError] = useState('');
+
+  const selectTab = (next: Tab) => {
+    setError('');
+    setTab(next);
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -41,13 +46,13 @@ export function AdminPage() {
         </p>
       )}
       <div className="mb-4 flex gap-2">
-        <TabButton active={tab === 'users'} onClick={() => setTab('users')} icon={<Users className="h-4 w-4" />}>
+        <TabButton active={tab === 'users'} onClick={() => selectTab('users')} icon={<Users className="h-4 w-4" />}>
           Пользователи
         </TabButton>
-        <TabButton active={tab === 'departments'} onClick={() => setTab('departments')} icon={<Building2 className="h-4 w-4" />}>
+        <TabButton active={tab === 'departments'} onClick={() => selectTab('departments')} icon={<Building2 className="h-4 w-4" />}>
           Департаменты
         </TabButton>
-        <TabButton active={tab === 'categories'} onClick={() => setTab('categories')} icon={<Tags className="h-4 w-4" />}>
+        <TabButton active={tab === 'categories'} onClick={() => selectTab('categories')} icon={<Tags className="h-4 w-4" />}>
           Категории
         </TabButton>
       </div>
@@ -85,23 +90,24 @@ function TabButton({
 
 function UsersTab({ onError }: { onError: (e: string) => void }) {
   const [users, setUsers] = useState<UserResponse[]>([]);
-  const [departments, setDepartments] = useState<DepartmentRow[]>([]);
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('EMPLOYEE');
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     Promise.all([getUsers(), getDepartments()])
       .then(([u, d]) => {
+        onError('');
         setUsers(u);
         setDepartments(d);
       })
       .catch(() => onError('Не удалось загрузить пользователей'))
       .finally(() => setLoading(false));
-  };
+  }, [onError]);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -127,7 +133,7 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
       setForm({ fullName: '', email: '', password: '', role: 'EMPLOYEE', departmentId: '' });
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось создать пользователя');
+      onError(getErrorMessage(err, 'Не удалось создать пользователя'));
     }
   };
 
@@ -136,7 +142,7 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
       await updateUser(id, { role });
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось изменить роль');
+      onError(getErrorMessage(err, 'Не удалось изменить роль'));
     }
   };
 
@@ -146,7 +152,7 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
       await deleteUser(id);
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось удалить пользователя');
+      onError(getErrorMessage(err, 'Не удалось удалить пользователя'));
     }
   };
 
@@ -288,16 +294,16 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
 }
 
 function DepartmentsTab({ onError }: { onError: (e: string) => void }) {
-  const [departments, setDepartments] = useState<DepartmentRow[]>([]);
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
 
-  const load = () => {
+  const load = useCallback(() => {
     getDepartments().then(setDepartments).catch(() => onError('Не удалось загрузить департаменты'));
-  };
+  }, [onError]);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -309,7 +315,7 @@ function DepartmentsTab({ onError }: { onError: (e: string) => void }) {
       setName('');
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось создать');
+      onError(getErrorMessage(err, 'Не удалось создать'));
     }
   };
 
@@ -323,7 +329,7 @@ function DepartmentsTab({ onError }: { onError: (e: string) => void }) {
       setEditingId(null);
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось изменить');
+      onError(getErrorMessage(err, 'Не удалось изменить'));
     }
   };
 
@@ -333,7 +339,7 @@ function DepartmentsTab({ onError }: { onError: (e: string) => void }) {
       await deleteDepartment(id);
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось удалить');
+      onError(getErrorMessage(err, 'Не удалось удалить'));
     }
   };
 
@@ -427,11 +433,11 @@ function CategoriesTab({ onError }: { onError: (e: string) => void }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
 
-  const load = () => {
+  const load = useCallback(() => {
     getCategories().then(setCategories).catch(() => onError('Не удалось загрузить категории'));
-  };
+  }, [onError]);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -443,7 +449,7 @@ function CategoriesTab({ onError }: { onError: (e: string) => void }) {
       setName('');
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось создать');
+      onError(getErrorMessage(err, 'Не удалось создать'));
     }
   };
 
@@ -457,7 +463,7 @@ function CategoriesTab({ onError }: { onError: (e: string) => void }) {
       setEditingId(null);
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось изменить');
+      onError(getErrorMessage(err, 'Не удалось изменить'));
     }
   };
 
@@ -467,7 +473,7 @@ function CategoriesTab({ onError }: { onError: (e: string) => void }) {
       await deleteCategory(id);
       load();
     } catch (err: unknown) {
-      onError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Не удалось удалить');
+      onError(getErrorMessage(err, 'Не удалось удалить'));
     }
   };
 

@@ -1,7 +1,6 @@
-import type { TicketStatus } from './auth';
 import type { UserSummary } from './user';
 
-export type { TicketStatus } from './auth';
+export type TicketStatus = 'NEW' | 'IN_PROGRESS' | 'WAITING_USER' | 'ANSWERED' | 'RESOLVED' | 'CLOSED';
 
 export interface MessageResponse {
   id: number;

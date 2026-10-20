@@ -4,8 +4,7 @@ import { Plus } from 'lucide-react';
 import { getTickets } from '../api/ticketsApi';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import type { TicketStatus } from '../types/auth';
-import type { TicketResponse } from '../types/ticket';
+import type { TicketResponse, TicketStatus } from '../types/ticket';
 
 type Filter = 'ALL' | 'ACTIVE' | 'ARCHIVE' | TicketStatus;
 

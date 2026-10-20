@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Headset, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '../api/errorMessage';
 import { useAuth } from '../context/AuthContext';
 
 export function LoginPage() {
@@ -19,8 +20,7 @@ export function LoginPage() {
       await login({ email, password });
       navigate('/');
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message ?? 'Не удалось войти в систему');
+      setError(getErrorMessage(err, 'Не удалось войти в систему'));
     } finally {
       setSubmitting(false);
     }

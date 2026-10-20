@@ -5,7 +5,6 @@ import type {
   UserResponse,
   UserUpdateRequest,
 } from '../types/user';
-import type { CategoryResponse } from '../types/ticket';
 
 export async function getUsers(): Promise<UserResponse[]> {
   const response = await client.get<UserResponse[]>('/users');
@@ -44,13 +43,8 @@ export async function deleteDepartment(id: number): Promise<void> {
   await client.delete(`/departments/${id}`);
 }
 
-export async function getCategories(): Promise<CategoryResponse[]> {
-  const response = await client.get<CategoryResponse[]>('/categories');
-  return response.data;
-}
-
-export async function createCategory(name: string): Promise<CategoryResponse> {
-  const response = await client.post<CategoryResponse>('/categories', { name });
+export async function createCategory(name: string): Promise<{ id: number; name: string }> {
+  const response = await client.post<{ id: number; name: string }>('/categories', { name });
   return response.data;
 }
 
