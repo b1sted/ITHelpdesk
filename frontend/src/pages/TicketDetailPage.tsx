@@ -10,7 +10,7 @@ import {
 import { CommentThread } from '../components/CommentThread';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import type { TicketResponse } from '../types/ticket';
+import type { TicketStatus, TicketResponse } from '../types/ticket';
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString('ru-RU', {
@@ -62,14 +62,14 @@ export function TicketDetailPage() {
     );
   }
 
-  const isAgent = user?.role === 'AGENT';
+const isAgent = user?.role === 'AGENT';
   const isAuthor = user?.email === ticket.creator.email;
   const isAssignee = user?.email === ticket.assignee?.email;
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     const updated = await getTicket(ticket.id);
     setTicket(updated);
-  }, [ticket?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   const handleAssign = async () => {
     await assignTicket(ticket.id);
@@ -90,8 +90,10 @@ export function TicketDetailPage() {
     await refresh();
   };
 
-  const canAssignAnyAgent = isAgent && ticket.status === 'NEW';
-  const canAgentWork = isAgent && isAssignee && ['IN_PROGRESS', 'WAITING_USER'].includes(ticket.status);
+  const canAgentWork =
+    isAgent &&
+    (ticket.status === 'NEW' ||
+      (isAssignee && ['IN_PROGRESS', 'WAITING_USER'].includes(ticket.status)));
   const canAuthorWork = isAuthor && ticket.status === 'RESOLVED';
   const canComment = !['CLOSED'].includes(ticket.status);
 
@@ -137,35 +139,7 @@ export function TicketDetailPage() {
           </div>
         </div>
 
-        {canAssignAnyAgent && (
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-            <button
-              onClick={handleAssign}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-            >
-              Взять в работу
-            </button>
-          </div>
-        )}
-
-        {canAgentWork && (
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-            {ticket.status === 'IN_PROGRESS' && (
-              <button
-                onClick={() => handleStatus('WAITING_USER')}
-                className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
-              >
-                Жду ответа
-              </button>
-            )}
-            <button
-              onClick={() => handleStatus('RESOLVED')}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-            >
-              Решено
-            </button>
-          </div>
-        )}
+        {canAgentWork && <AgentPanel onAssign={handleAssign} onStatus={handleStatus} status={ticket.status} />}
 
         {canAuthorWork && (
           <div className="mt-6 border-t border-slate-100 pt-4">
@@ -200,6 +174,46 @@ export function TicketDetailPage() {
           canComment={canComment}
         />
       </div>
+    </div>
+  );
+}
+
+interface AgentPanelProps {
+  status?: TicketStatus;
+  onAssign?: () => Promise<void>;
+  onStatus?: (status: 'WAITING_USER' | 'RESOLVED') => Promise<void>;
+}
+
+function AgentPanel({ status, onAssign, onStatus }: AgentPanelProps) {
+  if (status === 'NEW') {
+    return (
+      <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+        <button
+          onClick={onAssign}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+        >
+          Взять в работу
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+      {status === 'IN_PROGRESS' && (
+        <button
+          onClick={() => onStatus?.('WAITING_USER')}
+          className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
+        >
+          Жду ответа
+        </button>
+      )}
+      <button
+        onClick={() => onStatus?.('RESOLVED')}
+        className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+      >
+        Решено
+      </button>
     </div>
   );
 }
