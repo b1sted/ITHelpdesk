@@ -45,14 +45,13 @@ function formatDate(value: string): string {
 export function TicketListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const canSeeAllTickets = user?.role === 'AGENT' || user?.role === 'ADMIN';
   const [tickets, setTickets] = useState<TicketResponse[]>([]);
-  const [filter, setFilter] = useState<Filter>(
-    user?.role === 'AGENT' ? 'ALL' : 'ACTIVE',
-  );
+  const [filter, setFilter] = useState<Filter>(canSeeAllTickets ? 'ALL' : 'ACTIVE');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const filters = user?.role === 'AGENT' ? agentFilters : employeeFilters;
+  const filters = canSeeAllTickets ? agentFilters : employeeFilters;
 
   useEffect(() => {
     let cancelled = false;

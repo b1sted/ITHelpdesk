@@ -115,6 +115,7 @@ export function TicketDetailPage() {
   };
 
   const isAgent = user?.role === 'AGENT';
+  const isAdmin = user?.role === 'ADMIN';
   const isAuthor = user?.id === ticket.creator.id;
   const isAssignee = user?.id === ticket.assignee?.id;
 
@@ -122,11 +123,12 @@ export function TicketDetailPage() {
     isAgent &&
     (ticket.status === 'NEW' ||
       (isAssignee && ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status)));
-  const canAuthorWork = isAuthor && ticket.status === 'RESOLVED';
+  const canAuthorWork = isAuthor && !isAdmin && ticket.status === 'RESOLVED';
   const isClosed = ticket.status === 'CLOSED';
-  const canMessage = !isClosed && (!isAgent || isAssignee);
-  const messageHint =
-    isAgent && !isAssignee && !isClosed
+  const canMessage = !isClosed && !isAdmin && (!isAgent || isAssignee);
+  const messageHint = isAdmin
+    ? 'Администратор может только просматривать заявки и переписку.'
+    : isAgent && !isAssignee && !isClosed
       ? 'Писать сообщения может только специалист, взявший заявку в работу.'
       : undefined;
 

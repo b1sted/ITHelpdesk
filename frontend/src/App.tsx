@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
+import { EmployeeRoute } from './components/EmployeeRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminPage } from './pages/AdminPage';
 import { CreateTicketPage } from './pages/CreateTicketPage';
@@ -10,24 +11,7 @@ import { TicketDetailPage } from './pages/TicketDetailPage';
 import { TicketListPage } from './pages/TicketListPage';
 
 function AppRoutes() {
-  const { token, user } = useAuth();
-
-  if (token && user?.role === 'ADMIN') {
-    return (
-      <Routes>
-        <Route path="/login" element={<Navigate to="/admin" replace />} />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminPage />
-            </AdminRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
-      </Routes>
-    );
-  }
+  const { token } = useAuth();
 
   return (
     <Routes>
@@ -46,9 +30,9 @@ function AppRoutes() {
       <Route
         path="/tickets/new"
         element={
-          <ProtectedRoute>
+          <EmployeeRoute>
             <CreateTicketPage />
-          </ProtectedRoute>
+          </EmployeeRoute>
         }
       />
       <Route
@@ -57,6 +41,14 @@ function AppRoutes() {
           <ProtectedRoute>
             <TicketDetailPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
