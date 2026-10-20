@@ -1,4 +1,10 @@
-version: "3.9"
+name: ithelpdesk
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   db:
@@ -6,15 +12,22 @@ services:
     environment:
       POSTGRES_DB: ithelpdesk
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
     volumes:
       - prod-postgres-data:/var/lib/postgresql/data
+    shm_size: 256mb
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ithelpdesk"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    networks:
+      - backend
 
   backend:
     build:
@@ -23,26 +36,45 @@ services:
     environment:
       DB_URL: jdbc:postgresql://db:5432/ithelpdesk
       DB_USERNAME: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-change-me-at-least-32-bytes-long-secret}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@company.ru}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin2024!}
-      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME}
+      DB_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET (at least 32 bytes) in .env}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:8080}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@company.ru}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}"
+      ADMIN_FULL_NAME: "${ADMIN_FULL_NAME:-}"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    networks:
+      - backend
+      - frontend
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "${PORT:-8080}:80"
+      - "${PORT:-8080}:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    networks:
+      - frontend
 
 volumes:
   prod-postgres-data:
+
+networks:
+  frontend:
+  backend:
+    internal: true
