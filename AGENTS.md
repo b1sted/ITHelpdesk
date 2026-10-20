@@ -56,11 +56,11 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 |:---:|:---|:---|:---|:---|:---|
 | **BP-1** | **Ticket Registration** | *None* | `NEW` | `EMPLOYEE` | Creates ticket record; `assignee` is set to `null`; sets `created_at`. |
 | **BP-2** | **Claim Ticket** | `NEW` | `IN_PROGRESS` | `AGENT` | Sets `assignee_id = authenticated_agent_id`; moves status to `IN_PROGRESS`. |
-| **BP-3** | **Add Comment** | *Any active* | *Unchanged* (or `ANSWERED`) | `EMPLOYEE`, `AGENT` | Appends a new immutable message to `comments` linked to the ticket. When the **author** of a `WAITING_USER` ticket comments, the status automatically becomes `ANSWERED`. |
+| **BP-3** | **Add Message** | *Any active* | *Unchanged* (or `ANSWERED`) | `EMPLOYEE`, `AGENT` (Assignee) | Appends a new immutable message to `messages` linked to the ticket. An agent may post only after claiming the ticket (must be its assignee) and can always read the thread. When the **author** of a `WAITING_USER` ticket sends a message, the status automatically becomes `ANSWERED`. |
 | **BP-4** | **Pause Ticket** | `IN_PROGRESS` | `WAITING_USER` | `AGENT` (Assignee) | Toggles status to indicate pending user action. |
 | **BP-5** | **Resolve Ticket** | `IN_PROGRESS`, `WAITING_USER`, `ANSWERED` | `RESOLVED` | `AGENT` (Assignee) | Sets status to `RESOLVED`; locks specialist editing actions. |
 | **BP-6** | **Confirm & Close** | `RESOLVED` | `CLOSED` | `EMPLOYEE` (Author) | Sets status to `CLOSED`; ticket moves to archive. |
-| **BP-7** | **Reopen Ticket** | `RESOLVED` | `IN_PROGRESS` | `EMPLOYEE` (Author) | Reverts status to `IN_PROGRESS`; requires an explanation comment. |
+| **BP-7** | **Reopen Ticket** | `RESOLVED` | `IN_PROGRESS` | `EMPLOYEE` (Author) | Reverts status to `IN_PROGRESS`; requires a reason (`reason` field of `TicketStatusChangeRequest`). |
 | **BP-8** | **Resume Work** | `ANSWERED` | `IN_PROGRESS` | `AGENT` (Assignee) | The specialist continues working after the author's reply. |
 
 ---
@@ -70,7 +70,7 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 All tables must be normalized (3NF). Class names must be **singular**, and table names must be **plural**.
 
 ```text
- [ departments ] 1 ─── N [ users ] 1 ─── N [ comments ]
+ [ departments ] 1 ─── N [ users ] 1 ─── N [ messages ]
                              │                 │
                              │ (creator /      │
                              │  assignee)      │
@@ -106,12 +106,14 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
     * `assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
     * `category_id`: `BIGINT` (Foreign Key -> `categories.id`, Not Null)
 
-5. **`comments`**
+5. **`messages`**
     * `id`: `BIGINT` (Primary Key, Identity)
     * `text`: `TEXT` (Not Null)
     * `created_at`: `TIMESTAMP` (Not Null)
     * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
     * `author_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+
+> **Legacy schema:** startup script `src/main/resources/schema.sql` idempotently renames an existing `comments` table to `messages` so that pre-rename installations keep their history.
 
 ---
 
@@ -120,7 +122,7 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
 ### 6.1. Modular Feature Packaging Blueprint ("One Package - One Entity")
 Each domain module must strictly replicate the enterprise package anatomy established in the project.
 
-For any entity `<Entity>` (e.g., `Department`, `User`, `Category`, `Ticket`, `Comment`), create the following internal subpackages:
+For any entity `<Entity>` (e.g., `Department`, `User`, `Category`, `Ticket`, `Message`), create the following internal subpackages:
 
 ```text
 ru.basted.ithelpdesk.<feature>/
@@ -200,15 +202,17 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 |:---|:---|:---|:---|:---|
 | `POST` | `/tickets` | Register a new ticket (BP-1) | `EMPLOYEE` | `201 Created`, `400 Bad Request` |
 | `GET` | `/tickets` | List tickets (with filters by status/role) | Authenticated | `200 OK` |
-| `GET` | `/tickets/{id}` | Get full ticket details with comments | Authenticated | `200 OK`, `404 Not Found` |
+| `GET` | `/tickets/{id}` | Get full ticket details with messages | Authenticated | `200 OK`, `404 Not Found` |
 | `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` |
 | `PATCH`| `/tickets/{id}/status` | Transition status (BP-4, 5, 6, 7) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request` |
 
-### 7.3. Comments
+### 7.3. Messages
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
-| `POST` | `/tickets/{id}/comments`| Post a message in the ticket thread (BP-3)| Authenticated | `201 Created`, `400 Bad Request` |
-| `GET` | `/tickets/{id}/comments` | List messages of the ticket thread in chronological order | Authenticated | `200 OK`, `404 Not Found` |
+| `POST` | `/tickets/{id}/messages`| Post a message in the ticket thread (BP-3)| Authenticated; `AGENT` must be the assignee | `201 Created`, `400 Bad Request`, `409 Conflict` |
+| `GET` | `/tickets/{id}/messages` | List messages of the ticket thread in chronological order | Authenticated | `200 OK`, `404 Not Found` |
+
+An agent can always read the thread but may post only when the ticket is assigned to that agent (BP-2 completed). Otherwise the API returns `409 Conflict`.
 
 ### 7.4. Categories Management (Admin CRUD)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
@@ -258,7 +262,7 @@ frontend/
 │   ├── components/
 │   │   ├── Navbar.tsx            (Top header with User info, Role badge, and Logout)
 │   │   ├── StatusBadge.tsx       (Color-coded status pills: NEW, IN_PROGRESS, etc.)
-│   │   └── CommentThread.tsx     (Discussion timeline + message submission form)
+│   │   └── MessageThread.tsx     (Ticket conversation timeline + message submission form)
 │   ├── pages/
 │   │   ├── LoginPage.tsx         (Screen 1: Authentication form)
 │   │   ├── TicketListPage.tsx    (Screen 2: Table with filter tabs: All, New, In Progress, Resolved)
@@ -275,7 +279,8 @@ frontend/
 2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. Filter buttons: `[Все]`, `[Новые]`, `[В работе]`, `[Решённые]`. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
 4. **Screen 4 (Ticket Details - Adaptive 4a / 4b View):**
-    * Left section: Ticket metadata, full description, and chronological `CommentThread`.
+    * Left section: Ticket metadata, full description, and chronological `MessageThread`.
+    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); the author always sees the form while the ticket is not `CLOSED`.
     * Action panel adapts dynamically based on authenticated role and current ticket status:
         * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`. Action buttons are hidden if `status === 'RESOLVED'`.
         * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.
@@ -292,6 +297,14 @@ export interface UserSummary {
   departmentName: string;
 }
 
+export interface MessageResponse {
+  id: number;
+  text: string;
+  createdAt: string;
+  ticketId: number;
+  author: UserSummary;
+}
+
 export interface TicketResponse {
   id: number;
   title: string;
@@ -301,6 +314,7 @@ export interface TicketResponse {
   creator: UserSummary;
   assignee: UserSummary | null;
   categoryName: string;
+  messages: MessageResponse[];
 }
 ```
 

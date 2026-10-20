@@ -1,4 +1,4 @@
-package ru.basted.ithelpdesk.comment.entity;
+package ru.basted.ithelpdesk.message.entity;
 
 import java.time.LocalDateTime;
 
@@ -9,8 +9,8 @@ import jakarta.persistence.Table;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 
 @Entity
-@Table(name = "comments")
-public class Comment extends BaseEntity {
+@Table(name = "messages")
+public class Message extends BaseEntity {
     @Column(name = "text", nullable = false, columnDefinition = "TEXT")
     private String text;
 

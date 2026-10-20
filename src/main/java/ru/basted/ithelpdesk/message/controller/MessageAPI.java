@@ -1,4 +1,4 @@
-package ru.basted.ithelpdesk.comment.controller;
+package ru.basted.ithelpdesk.message.controller;
 
 import java.util.List;
 
@@ -21,13 +21,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import ru.basted.ithelpdesk.comment.dto.CommentCreateRequest;
-import ru.basted.ithelpdesk.comment.dto.CommentResponse;
 import ru.basted.ithelpdesk.core.exception.ApiError;
+import ru.basted.ithelpdesk.message.dto.MessageCreateRequest;
+import ru.basted.ithelpdesk.message.dto.MessageResponse;
 
-@Tag(name = "Комментарии", description = "Обсуждение заявок в комментариях")
-public interface CommentAPI {
-    String COMMENT_JSON = """
+@Tag(name = "Сообщения", description = "Переписка по заявке в ходе решения проблемы")
+public interface MessageAPI {
+    String MESSAGE_JSON = """
             {
               "id": 1,
               "text": "Проблема исправлена, просьба проверить",
@@ -40,21 +40,23 @@ public interface CommentAPI {
                 "departmentName": "Департамент разработки"
               }
             }""";
-    String COMMENT_LIST_JSON = "[" + COMMENT_JSON + "]";
+    String MESSAGE_LIST_JSON = "[" + MESSAGE_JSON + "]";
     String ERROR_404_GENERIC_JSON = "{\"message\":\"Ресурс не найден\"}";
     String ERROR_404_TICKET_JSON = "{\"message\":\"Не найдена заявка с ID 99\"}";
-    String ERROR_400_JSON = "{\"message\":\"Текст комментария не может быть пустым\"}";
-    String ERROR_409_JSON = "{\"message\":\"Нельзя добавлять комментарии к закрытой заявке\"}";
+    String ERROR_400_JSON = "{\"message\":\"Текст сообщения не может быть пустым\"}";
+    String ERROR_409_JSON = "{\"message\":\"Нельзя добавлять сообщения к закрытой заявке\"}";
+    String ERROR_409_AGENT_JSON =
+            "{\"message\":\"Специалист может писать сообщения только в заявке, взятой им в работу\"}";
 
     @Operation(
-            summary = "Добавить комментарий к заявке",
-            description = "Добавление нового сообщения в обсуждение заявки"
+            summary = "Добавить сообщение в переписку по заявке",
+            description = "Добавление нового сообщения в переписку по заявке в ходе решения проблемы"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Комментарий успешно добавлен",
+            @ApiResponse(responseCode = "201", description = "Сообщение успешно добавлено",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = CommentResponse.class),
-                            examples = @ExampleObject(value = COMMENT_JSON))),
+                            schema = @Schema(implementation = MessageResponse.class),
+                            examples = @ExampleObject(value = MESSAGE_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
@@ -67,29 +69,33 @@ public interface CommentAPI {
                                     @ExampleObject(name = "Не найдена заявка", value = ERROR_404_TICKET_JSON),
                                     @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
                             })),
-            @ApiResponse(responseCode = "409", description = "Нельзя комментировать закрытую заявку",
+            @ApiResponse(responseCode = "409",
+                    description = "Закрытая заявка или специалист не взял заявку в работу",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_409_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Закрытая заявка", value = ERROR_409_JSON),
+                                    @ExampleObject(name = "Заявка не взята в работу", value = ERROR_409_AGENT_JSON)
+                            }))
     })
-    @PostMapping("/{ticketId}/comments")
-    ResponseEntity<CommentResponse> addComment(
+    @PostMapping("/{ticketId}/messages")
+    ResponseEntity<MessageResponse> addMessage(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")
             @Min(value = 1, message = "ID не может быть меньше нуля") Long ticketId,
 
-            @Valid @RequestBody CommentCreateRequest createRequest
+            @Valid @RequestBody MessageCreateRequest createRequest
     );
 
     @Operation(
-            summary = "Получить комментарии к заявке",
-            description = "Возвращает хронологический список комментариев заявки"
+            summary = "Получить переписку по заявке",
+            description = "Возвращает хронологический список сообщений по заявке"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Список комментариев",
+            @ApiResponse(responseCode = "200", description = "Список сообщений",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = CommentResponse.class),
-                            examples = @ExampleObject(value = COMMENT_LIST_JSON))),
+                            schema = @Schema(implementation = MessageResponse.class),
+                            examples = @ExampleObject(value = MESSAGE_LIST_JSON))),
             @ApiResponse(responseCode = "404",
                     description = "Заявка не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -99,8 +105,8 @@ public interface CommentAPI {
                                     @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
                             }))
     })
-    @GetMapping("/{ticketId}/comments")
-    ResponseEntity<List<CommentResponse>> getCommentsByTicket(
+    @GetMapping("/{ticketId}/messages")
+    ResponseEntity<List<MessageResponse>> getMessagesByTicket(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")
             @Min(value = 1, message = "ID не может быть меньше нуля") Long ticketId

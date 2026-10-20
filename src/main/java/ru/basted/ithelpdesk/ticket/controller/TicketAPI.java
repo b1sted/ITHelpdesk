@@ -52,7 +52,7 @@ public interface TicketAPI {
                 "departmentName": "Департамент разработки"
               },
               "categoryName": "Программное обеспечение",
-              "comments": [
+              "messages": [
                 {
                   "id": 1,
                   "text": "Принял заявку в работу, проверяю почтовый сервер",
@@ -126,7 +126,7 @@ public interface TicketAPI {
 
     @Operation(
             summary = "Получить полную информацию о заявке по идентификатору",
-            description = "Возвращает информацию о конкретной заявке с её автором, исполнителем и комментариями"
+            description = "Возвращает информацию о конкретной заявке с её автором, исполнителем и перепиской"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Полная информация о заявке",

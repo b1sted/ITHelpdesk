@@ -1,6 +1,6 @@
 import { client } from './client';
 import type {
-  CommentResponse,
+  MessageResponse,
   TicketCreateRequest,
   TicketResponse,
   TicketStatus,
@@ -37,8 +37,8 @@ export async function changeTicketStatus(
   return response.data;
 }
 
-export async function addComment(id: number, text: string): Promise<CommentResponse> {
-  const response = await client.post<CommentResponse>(`/tickets/${id}/comments`, { text });
+export async function addMessage(id: number, text: string): Promise<MessageResponse> {
+  const response = await client.post<MessageResponse>(`/tickets/${id}/messages`, { text });
   return response.data;
 }
 

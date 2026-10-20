@@ -12,7 +12,7 @@ public record TicketStatusChangeRequest(
     @Schema(description = "Новый статус заявки", example = "RESOLVED")
     TicketStatus status,
 
-    @Schema(description = "Комментарий, поясняющий изменение статуса (обязателен при возврате на доработку)",
+    @Schema(description = "Причина, поясняющая изменение статуса (обязательна при возврате на доработку)",
             example = "Проблема воспроизводится повторно")
-    String comment
+    String reason
 ) {}

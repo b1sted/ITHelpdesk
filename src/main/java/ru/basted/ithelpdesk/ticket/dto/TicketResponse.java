@@ -5,7 +5,7 @@ import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import ru.basted.ithelpdesk.comment.dto.CommentResponse;
+import ru.basted.ithelpdesk.message.dto.MessageResponse;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.user.dto.UserSummary;
 
@@ -35,6 +35,6 @@ public record TicketResponse(
     @Schema(description = "Название категории инцидента", example = "Оборудование")
     String categoryName,
 
-    @Schema(description = "Комментарии к заявке, перечисленные в хронологическом порядке")
-    List<CommentResponse> comments
+    @Schema(description = "Сообщения по заявке, перечисленные в хронологическом порядке")
+    List<MessageResponse> messages
 ) {}
