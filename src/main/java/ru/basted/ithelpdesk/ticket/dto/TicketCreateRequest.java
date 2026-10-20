@@ -14,6 +14,7 @@ public record TicketCreateRequest(
     String title,
 
     @NotBlank(message = "Описание заявки не может быть пустым")
+    @Size(max = 10000, message = "Описание заявки не может быть длиннее 10000 символов")
     @Schema(description = "Описание проблемы", example = "С утра не могу войти в почтовый клиент")
     String description,
 

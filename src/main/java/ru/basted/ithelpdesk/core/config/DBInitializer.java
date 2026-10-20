@@ -106,7 +106,7 @@ public class DBInitializer implements ApplicationRunner {
         admin.setEmail(adminEmail);
         admin.setPassword(passwordEncoder.encode(adminPassword));
         admin.setRole(UserRole.ADMIN);
-        admin.setDepartmentId(department.getId());
+        admin.setDepartment(department);
         userRepository.save(admin);
     }
 }

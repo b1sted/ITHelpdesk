@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "Модель данных с токеном аутентификации и данными пользователя")
 public record AuthResponse(
+    @Schema(description = "Уникальный идентификатор пользователя", example = "1")
+    Long id,
+
     @Schema(description = "JWT-токен для доступа к API", example = "eyJhbGciOiJSUzI1NiJ9...")
     String token,
 

@@ -6,9 +6,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
+import ru.basted.ithelpdesk.user.entity.User;
 
 @Entity
 @Table(name = "tickets")
@@ -26,14 +32,20 @@ public class Ticket extends BaseEntity {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "creator_id", nullable = false)
-    private Long creatorId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "creator_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_tickets_creator_id"))
+    private User creator;
 
-    @Column(name = "assignee_id")
-    private Long assigneeId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id",
+            foreignKey = @ForeignKey(name = "fk_tickets_assignee_id"))
+    private User assignee;
 
-    @Column(name = "category_id", nullable = false)
-    private Long categoryId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "category_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_tickets_category_id"))
+    private Category category;
 
     public String getTitle() {
         return title;
@@ -67,27 +79,27 @@ public class Ticket extends BaseEntity {
         this.createdAt = createdAt;
     }
 
-    public Long getCreatorId() {
-        return creatorId;
+    public User getCreator() {
+        return creator;
     }
 
-    public void setCreatorId(Long creatorId) {
-        this.creatorId = creatorId;
+    public void setCreator(User creator) {
+        this.creator = creator;
     }
 
-    public Long getAssigneeId() {
-        return assigneeId;
+    public User getAssignee() {
+        return assignee;
     }
 
-    public void setAssigneeId(Long assigneeId) {
-        this.assigneeId = assigneeId;
+    public void setAssignee(User assignee) {
+        this.assignee = assignee;
     }
 
-    public Long getCategoryId() {
-        return categoryId;
+    public Category getCategory() {
+        return category;
     }
 
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
+    public void setCategory(Category category) {
+        this.category = category;
     }
 }

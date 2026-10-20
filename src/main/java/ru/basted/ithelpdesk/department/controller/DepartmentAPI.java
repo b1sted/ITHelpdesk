@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,7 +50,7 @@ public interface DepartmentAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список департаментов",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = DepartmentResponse.class),
+                            array = @ArraySchema(schema = @Schema(implementation = DepartmentResponse.class)),
                             examples = @ExampleObject(value = DEPARTMENT_LIST_JSON))),
             @ApiResponse(responseCode = "404",
                     description = "Ресурс не найден или требуется аутентификация",
@@ -83,7 +84,7 @@ public interface DepartmentAPI {
     ResponseEntity<DepartmentResponse> getDepartmentById(
             @Parameter(description = "Уникальный идентификатор департамента", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 
     @Operation(
@@ -120,7 +121,10 @@ public interface DepartmentAPI {
             description = "Изменение имени существующего департамента. Доступна только администраторам."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Имя департамента успешно изменено"),
+            @ApiResponse(responseCode = "200", description = "Имя департамента успешно изменено",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = DepartmentResponse.class),
+                            examples = @ExampleObject(value = DEPARTMENT_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
@@ -136,10 +140,10 @@ public interface DepartmentAPI {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    ResponseEntity<Void> updateName(
+    ResponseEntity<DepartmentResponse> updateName(
             @Parameter(description = "Уникальный идентификатор департамента", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id,
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
 
             @Valid @RequestBody DepartmentChangeName changeName
     );
@@ -164,6 +168,6 @@ public interface DepartmentAPI {
     ResponseEntity<Void> deleteDepartment(
             @Parameter(description = "Уникальный идентификатор департамента", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 }

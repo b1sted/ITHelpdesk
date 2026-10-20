@@ -40,10 +40,8 @@ public class DepartmentController implements DepartmentAPI {
     }
 
     @Override
-    public ResponseEntity<Void> updateName(Long id, DepartmentChangeName changeName) {
-        service.updateName(id, changeName.name());
-
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<DepartmentResponse> updateName(Long id, DepartmentChangeName changeName) {
+        return ResponseEntity.ok(service.updateName(id, changeName.name()));
     }
 
     @Override

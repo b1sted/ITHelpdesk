@@ -40,10 +40,8 @@ public class CategoryController implements CategoryAPI {
     }
 
     @Override
-    public ResponseEntity<Void> updateName(Long id, CategoryChangeName changeName) {
-        service.updateName(id, changeName.name());
-
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<CategoryResponse> updateName(Long id, CategoryChangeName changeName) {
+        return ResponseEntity.ok(service.updateName(id, changeName.name()));
     }
 
     @Override

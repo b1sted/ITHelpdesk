@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -47,6 +48,8 @@ public interface MessageAPI {
     String ERROR_409_JSON = "{\"message\":\"Нельзя добавлять сообщения к закрытой заявке\"}";
     String ERROR_409_AGENT_JSON =
             "{\"message\":\"Специалист может писать сообщения только в заявке, взятой им в работу\"}";
+    String ERROR_409_EMPLOYEE_JSON =
+            "{\"message\":\"Сотрудник может писать сообщения только в своих заявках\"}";
 
     @Operation(
             summary = "Добавить сообщение в переписку по заявке",
@@ -75,14 +78,15 @@ public interface MessageAPI {
                             schema = @Schema(implementation = ApiError.class),
                             examples = {
                                     @ExampleObject(name = "Закрытая заявка", value = ERROR_409_JSON),
-                                    @ExampleObject(name = "Заявка не взята в работу", value = ERROR_409_AGENT_JSON)
+                                    @ExampleObject(name = "Заявка не взята в работу", value = ERROR_409_AGENT_JSON),
+                                    @ExampleObject(name = "Чужая заявка", value = ERROR_409_EMPLOYEE_JSON)
                             }))
     })
     @PostMapping("/{ticketId}/messages")
     ResponseEntity<MessageResponse> addMessage(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long ticketId,
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long ticketId,
 
             @Valid @RequestBody MessageCreateRequest createRequest
     );
@@ -94,7 +98,7 @@ public interface MessageAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список сообщений",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = MessageResponse.class),
+                            array = @ArraySchema(schema = @Schema(implementation = MessageResponse.class)),
                             examples = @ExampleObject(value = MESSAGE_LIST_JSON))),
             @ApiResponse(responseCode = "404",
                     description = "Заявка не найдена или ресурс скрыт",
@@ -109,6 +113,6 @@ public interface MessageAPI {
     ResponseEntity<List<MessageResponse>> getMessagesByTicket(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long ticketId
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long ticketId
     );
 }

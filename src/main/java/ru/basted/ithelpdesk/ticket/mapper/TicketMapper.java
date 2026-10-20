@@ -10,7 +10,8 @@ import ru.basted.ithelpdesk.ticket.entity.Ticket;
 public interface TicketMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "creatorId", ignore = true)
-    @Mapping(target = "assigneeId", ignore = true)
+    @Mapping(target = "creator", ignore = true)
+    @Mapping(target = "assignee", ignore = true)
+    @Mapping(target = "category", ignore = true)
     Ticket toEntity(TicketCreateRequest dto);
 }
