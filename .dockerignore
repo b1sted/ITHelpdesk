@@ -1,15 +1,40 @@
+# Version control, IDE and OS noise
 .git
 .gitignore
+.gitattributes
 .idea
+.vscode
 *.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Build output and caches
 .gradle
 build
 **/build
+**/out
 frontend/node_modules
 frontend/dist
 frontend/.vite
+frontend/coverage
+frontend/.eslintcache
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Compose files and documentation are not needed inside the images
 docker-compose*.yml
-Dockerfile*
+docker-compose*.yaml
+README.md
+AGENTS.md
+LICENSE
+.github
+
+# Test sources are not needed for packaging
+src/test
