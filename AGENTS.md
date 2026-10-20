@@ -46,6 +46,7 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 * `NEW` — Created, waiting in the unassigned queue.
 * `IN_PROGRESS` — Claimed by an IT specialist, currently being addressed.
 * `WAITING_USER` — Paused by the IT specialist pending user response/clarification.
+* `ANSWERED` — The author replied to a `WAITING_USER` ticket; awaiting the specialist again.
 * `RESOLVED` — Marked as fixed by the IT specialist; awaiting employee verification.
 * `CLOSED` — Final state; resolution confirmed by the author.
 
@@ -55,11 +56,12 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 |:---:|:---|:---|:---|:---|:---|
 | **BP-1** | **Ticket Registration** | *None* | `NEW` | `EMPLOYEE` | Creates ticket record; `assignee` is set to `null`; sets `created_at`. |
 | **BP-2** | **Claim Ticket** | `NEW` | `IN_PROGRESS` | `AGENT` | Sets `assignee_id = authenticated_agent_id`; moves status to `IN_PROGRESS`. |
-| **BP-3** | **Add Comment** | *Any active* | *Unchanged* | `EMPLOYEE`, `AGENT` | Appends a new immutable message to `comments` linked to the ticket. |
-| **BP-4** | **Pause Ticket** | `IN_PROGRESS` | `WAITING_USER` | `AGENT` | Toggles status to indicate pending user action. |
-| **BP-5** | **Resolve Ticket** | `IN_PROGRESS`, `WAITING_USER` | `RESOLVED` | `AGENT` (Assignee) | Sets status to `RESOLVED`; locks specialist editing actions. |
+| **BP-3** | **Add Comment** | *Any active* | *Unchanged* (or `ANSWERED`) | `EMPLOYEE`, `AGENT` | Appends a new immutable message to `comments` linked to the ticket. When the **author** of a `WAITING_USER` ticket comments, the status automatically becomes `ANSWERED`. |
+| **BP-4** | **Pause Ticket** | `IN_PROGRESS` | `WAITING_USER` | `AGENT` (Assignee) | Toggles status to indicate pending user action. |
+| **BP-5** | **Resolve Ticket** | `IN_PROGRESS`, `WAITING_USER`, `ANSWERED` | `RESOLVED` | `AGENT` (Assignee) | Sets status to `RESOLVED`; locks specialist editing actions. |
 | **BP-6** | **Confirm & Close** | `RESOLVED` | `CLOSED` | `EMPLOYEE` (Author) | Sets status to `CLOSED`; ticket moves to archive. |
 | **BP-7** | **Reopen Ticket** | `RESOLVED` | `IN_PROGRESS` | `EMPLOYEE` (Author) | Reverts status to `IN_PROGRESS`; requires an explanation comment. |
+| **BP-8** | **Resume Work** | `ANSWERED` | `IN_PROGRESS` | `AGENT` (Assignee) | The specialist continues working after the author's reply. |
 
 ---
 
@@ -281,7 +283,7 @@ frontend/
 ### 8.3. Type Safety (DTO Mirroring)
 Every TypeScript type in `src/types/` must mirror its corresponding Java DTO Record. Example:
 ```typescript
-export type TicketStatus = 'NEW' | 'IN_PROGRESS' | 'WAITING_USER' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = 'NEW' | 'IN_PROGRESS' | 'WAITING_USER' | 'ANSWERED' | 'RESOLVED' | 'CLOSED';
 
 export interface UserSummary {
   id: number;

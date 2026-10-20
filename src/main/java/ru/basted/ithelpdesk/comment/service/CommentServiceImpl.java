@@ -65,6 +65,12 @@ public class CommentServiceImpl implements CommentService {
         comment.setTicketId(ticketId);
         comment.setAuthorId(author.getId());
 
+        if (ticket.getStatus() == TicketStatus.WAITING_USER
+                && ticket.getCreatorId().equals(author.getId())) {
+            ticket.setStatus(TicketStatus.ANSWERED);
+            ticketRepository.save(ticket);
+        }
+
         Comment savedComment = repository.save(comment);
 
         return toResponse(savedComment);
