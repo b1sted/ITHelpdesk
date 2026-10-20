@@ -5,4 +5,4 @@ BEGIN
         ALTER TABLE comments RENAME TO messages;
     END IF;
 END
-$$;
+$$;@@
