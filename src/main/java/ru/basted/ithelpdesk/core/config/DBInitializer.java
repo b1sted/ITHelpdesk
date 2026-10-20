@@ -1,9 +1,10 @@
 package ru.basted.ithelpdesk.core.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.jspecify.annotations.NonNull;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.jspecify.annotations.NonNull;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +29,15 @@ public class DBInitializer implements ApplicationRunner {
             "Учётные записи и доступы"
     };
 
+    private static final String TICKET_STATUS_CONSTRAINT = """
+            ALTER TABLE tickets ADD CONSTRAINT tickets_status_check
+            CHECK (status IN ('NEW', 'IN_PROGRESS', 'WAITING_USER', 'ANSWERED', 'RESOLVED', 'CLOSED'))
+            """;
+
     private final DepartmentRepository departmentRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final String adminEmail;
     private final String adminPassword;
@@ -40,6 +47,7 @@ public class DBInitializer implements ApplicationRunner {
             DepartmentRepository departmentRepository,
             CategoryRepository categoryRepository,
             UserRepository userRepository,
+            JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             @Value("${app.seed.admin-email:admin@company.ru}") String adminEmail,
             @Value("${app.seed.admin-password:Admin2024!}") String adminPassword,
@@ -48,6 +56,7 @@ public class DBInitializer implements ApplicationRunner {
         this.departmentRepository = departmentRepository;
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
+        this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
@@ -57,9 +66,15 @@ public class DBInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(@NonNull ApplicationArguments args) {
+        refreshTicketStatusConstraint();
         Department department = seedDepartment();
         seedCategories();
         seedAdmin(department);
+    }
+
+    private void refreshTicketStatusConstraint() {
+        jdbcTemplate.execute("ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check");
+        jdbcTemplate.execute(TICKET_STATUS_CONSTRAINT);
     }
 
     private Department seedDepartment() {

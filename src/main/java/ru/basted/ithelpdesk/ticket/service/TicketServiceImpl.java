@@ -127,8 +127,8 @@ public class TicketServiceImpl implements TicketService {
             case WAITING_USER -> pauseTicket(ticket, user);
             case RESOLVED -> resolveTicket(ticket, user);
             case CLOSED -> closeTicket(ticket, user);
-            case IN_PROGRESS -> reopenTicket(ticket, user, changeRequest.comment());
-            default -> throw new IllegalStateException(
+            case IN_PROGRESS -> resumeOrReopenTicket(ticket, user, changeRequest.comment());
+            default -> throw new IllegalArgumentException(
                     "Недопустимый целевой статус " + target + " для изменения заявки"
             );
         }
@@ -147,8 +147,9 @@ public class TicketServiceImpl implements TicketService {
 
     private void resolveTicket(Ticket ticket, User user) {
         checkRule(ticket.getStatus() == TicketStatus.IN_PROGRESS
-                        || ticket.getStatus() == TicketStatus.WAITING_USER,
-                "Отметить заявку решённой можно только из статусов IN_PROGRESS или WAITING_USER");
+                        || ticket.getStatus() == TicketStatus.WAITING_USER
+                        || ticket.getStatus() == TicketStatus.ANSWERED,
+                "Отметить заявку решённой можно только из статусов IN_PROGRESS, WAITING_USER или ANSWERED");
         checkRule(user.getId().equals(ticket.getAssigneeId()),
                 "Отметить заявку решённой может только назначенный исполнитель");
 
@@ -164,7 +165,14 @@ public class TicketServiceImpl implements TicketService {
         ticket.setStatus(TicketStatus.CLOSED);
     }
 
-    private void reopenTicket(Ticket ticket, User user, String comment) {
+    private void resumeOrReopenTicket(Ticket ticket, User user, String comment) {
+        if (ticket.getStatus() == TicketStatus.ANSWERED) {
+            checkRule(user.getId().equals(ticket.getAssigneeId()),
+                    "Возобновить заявку может только назначенный исполнитель");
+            ticket.setStatus(TicketStatus.IN_PROGRESS);
+            return;
+        }
+
         checkRule(ticket.getStatus() == TicketStatus.RESOLVED,
                 "Вернуть заявку на доработку можно только из статуса RESOLVED");
         checkRule(user.getId().equals(ticket.getCreatorId()),

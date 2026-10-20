@@ -93,7 +93,7 @@ const isAgent = user?.role === 'AGENT';
   const canAgentWork =
     isAgent &&
     (ticket.status === 'NEW' ||
-      (isAssignee && ['IN_PROGRESS', 'WAITING_USER'].includes(ticket.status)));
+      (isAssignee && ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status)));
   const canAuthorWork = isAuthor && ticket.status === 'RESOLVED';
   const canComment = !['CLOSED'].includes(ticket.status);
 
@@ -181,7 +181,7 @@ const isAgent = user?.role === 'AGENT';
 interface AgentPanelProps {
   status?: TicketStatus;
   onAssign?: () => Promise<void>;
-  onStatus?: (status: 'WAITING_USER' | 'RESOLVED') => Promise<void>;
+  onStatus?: (status: 'WAITING_USER' | 'RESOLVED' | 'IN_PROGRESS') => Promise<void>;
 }
 
 function AgentPanel({ status, onAssign, onStatus }: AgentPanelProps) {
@@ -206,6 +206,14 @@ function AgentPanel({ status, onAssign, onStatus }: AgentPanelProps) {
           className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
         >
           Жду ответа
+        </button>
+      )}
+      {status === 'ANSWERED' && (
+        <button
+          onClick={() => onStatus?.('IN_PROGRESS')}
+          className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+        >
+          Продолжить работу
         </button>
       )}
       <button
