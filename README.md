@@ -47,24 +47,39 @@ categories and the admin account `admin@company.ru` / `Admin2024!`
 ## 📦 Production
 
 ```bash
-# 1. Configure secrets (copy the template and edit)
+# 1. Configure secrets (copy the template and replace every required value)
 cp .env.example .env
 
 # 2. Build images and start the whole stack (nginx + backend + postgres)
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env -f docker-compose.prod.yml up -d --build
 ```
 
-The nginx container serves the built SPA on port 8080 and proxies `/api`
-(and Swagger UI) to the backend container.
+The unprivileged nginx container serves the built SPA on port `8080`
+(override with `PORT`) and proxies `/api`, Swagger UI and OpenAPI docs to the
+backend container. PostgreSQL is only reachable from the internal network and
+is never published to the host.
 
 Required env vars (see `.env.example`):
 
 | Variable | Description |
 |:---|:---|
-| `DB_PASSWORD` | PostgreSQL password |
-| `JWT_SECRET` | HMAC secret, **must be ≥ 32 bytes** (`openssl rand -base64 48`) |
-| `CORS_ALLOWED_ORIGINS` | Allowed frontend origins for the API |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_FULL_NAME` | Initial admin account |
+| `DB_PASSWORD` | PostgreSQL password, **required** |
+| `JWT_SECRET` | HMAC secret, **required**, at least 32 bytes (`openssl rand -base64 48`) |
+| `ADMIN_PASSWORD` | Initial admin password, **required** |
+| `CORS_ALLOWED_ORIGINS` | Allowed frontend origins for the API (default `http://localhost:8080`) |
+| `ADMIN_EMAIL` / `ADMIN_FULL_NAME` | Initial admin identity (sensible defaults) |
+| `PORT` | Public nginx port (default `8080`) |
+
+Both images are built without secrets, run as non-root users and expose
+container health checks that Compose uses to order startup.
+
+## ✅ Quality Checks
+
+```bash
+./gradlew test                 # backend unit tests
+cd frontend && npm run lint    # frontend linting
+cd frontend && npm run build   # type-check + production bundle
+```
 
 ## 📚 API
 
@@ -76,3 +91,4 @@ Required env vars (see `.env.example`):
 * JWT (HS256, 24 h) with user re-validation on every request.
 * Login rate limiting (5 attempts / 5 min → `429`).
 * Protected resources are masked as `404` for unauthenticated / unauthorized requests.
+* Production containers run as non-root; PostgreSQL stays on an internal Docker network.
