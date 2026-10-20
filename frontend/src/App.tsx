@@ -65,9 +65,10 @@ function AppRoutes() {
 }
 
 function Layout() {
+  const { token } = useAuth();
   return (
     <div className="min-h-screen bg-slate-100">
-      <Navbar />
+      {token && <Navbar />}
       <AppRoutes />
     </div>
   );
