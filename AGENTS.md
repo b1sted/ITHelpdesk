@@ -207,10 +207,10 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 ### 7.3. Messages
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
-| `POST` | `/tickets/{id}/messages`| Post a message in the ticket thread (BP-3)| Authenticated; `AGENT` must be the assignee | `201 Created`, `400 Bad Request`, `409 Conflict` |
+| `POST` | `/tickets/{id}/messages`| Post a message in the ticket thread (BP-3)| `EMPLOYEE` (author), `AGENT` (assignee) | `201 Created`, `400 Bad Request`, `409 Conflict` |
 | `GET` | `/tickets/{id}/messages` | List messages of the ticket thread in chronological order | Authenticated | `200 OK`, `404 Not Found` |
 
-An agent can always read the thread but may post only when the ticket is assigned to that agent (BP-2 completed). An employee may post only in their own tickets. Otherwise the API returns `409 Conflict`.
+An agent can always read the thread but may post only when the ticket is assigned to that agent (BP-2 completed). An employee may post only in their own tickets. Administrators can read every ticket and thread but cannot post messages. Otherwise the API returns `409 Conflict`.
 
 ### 7.4. Categories Management (Admin CRUD)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
@@ -258,14 +258,15 @@ frontend/
 │   │   ├── user.ts
 │   │   └── ticket.ts
 │   ├── components/
-│   │   ├── Navbar.tsx            (Top header with User info, Role badge, and Logout)
+│   │   ├── Navbar.tsx            (Top header with section links, User info, Role badge, and Logout)
 │   │   ├── StatusBadge.tsx       (Color-coded status pills: NEW, IN_PROGRESS, etc.)
 │   │   └── MessageThread.tsx     (Ticket conversation timeline + message submission form)
 │   ├── pages/
 │   │   ├── LoginPage.tsx         (Screen 1: Authentication form)
 │   │   ├── TicketListPage.tsx    (Screen 2: Table with filter tabs: All, New, In Progress, Resolved)
 │   │   ├── CreateTicketPage.tsx  (Screen 3: Ticket submission form)
-│   │   └── TicketDetailPage.tsx  (Screen 4: Adaptive detail view for 4a/4b)
+│   │   ├── TicketDetailPage.tsx  (Screen 4: Adaptive detail view for 4a/4b/4c)
+│   │   └── AdminPage.tsx         (Screen 5: Admin console for users, departments and categories)
 │   ├── App.tsx                   (Router and Role Context)
 │   └── main.tsx
 ├── package.json
@@ -274,14 +275,16 @@ frontend/
 
 ### 8.2. UI Screens & Adaptive Action Panel Rules
 1. **Screen 1 (Login):** Email and password input, stores authenticated token & user profile (`role`, `fullName`) in client state.
-2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. Filter buttons: `[Все]`, `[Новые]`, `[В работе]`, `[Решённые]`. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
+2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` and `ADMIN` see all tickets with the full status filter set. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
-4. **Screen 4 (Ticket Details - Adaptive 4a / 4b View):**
+4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c View):**
     * Left section: Ticket metadata, full description, and chronological `MessageThread`.
-    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); the author always sees the form while the ticket is not `CLOSED`.
+    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); the author always sees the form while the ticket is not `CLOSED`; an `ADMIN` sees the whole thread in read-only mode.
     * Action panel adapts dynamically based on authenticated role and current ticket status:
         * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`. Action buttons are hidden if `status === 'RESOLVED'`.
         * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.
+        * **Admin View (4c):** Read-only inspection of any ticket. No assign, status or message submission actions are shown.
+5. **Screen 5 (Admin Console):** Accessible at `/admin` only to `ROLE_ADMIN`. Provides tabs for users, departments and categories, plus a shortcut back to the ticket list.
 
 ### 8.3. Type Safety (DTO Mirroring)
 Every TypeScript type in `src/types/` must mirror its corresponding Java DTO Record. Example:
