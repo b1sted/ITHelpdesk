@@ -45,6 +45,8 @@ public interface CommentAPI {
     String ERROR_404_TICKET_JSON = "{\"message\":\"Не найдена заявка с ID 99\"}";
     String ERROR_400_JSON = "{\"message\":\"Текст комментария не может быть пустым\"}";
     String ERROR_409_JSON = "{\"message\":\"Нельзя добавлять комментарии к закрытой заявке\"}";
+    String ERROR_409_AGENT_JSON =
+            "{\"message\":\"Специалист может писать сообщения только в заявке, взятой им в работу\"}";
 
     @Operation(
             summary = "Добавить комментарий к заявке",
@@ -67,10 +69,14 @@ public interface CommentAPI {
                                     @ExampleObject(name = "Не найдена заявка", value = ERROR_404_TICKET_JSON),
                                     @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
                             })),
-            @ApiResponse(responseCode = "409", description = "Нельзя комментировать закрытую заявку",
+            @ApiResponse(responseCode = "409",
+                    description = "Нельзя комментировать закрытую заявку или специалист не взял заявку в работу",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_409_JSON)))
+                            examples = {
+                                    @ExampleObject(name = "Закрытая заявка", value = ERROR_409_JSON),
+                                    @ExampleObject(name = "Заявка не взята в работу", value = ERROR_409_AGENT_JSON)
+                            }))
     })
     @PostMapping("/{ticketId}/comments")
     ResponseEntity<CommentResponse> addComment(

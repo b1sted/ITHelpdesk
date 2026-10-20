@@ -21,6 +21,7 @@ import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.user.dto.UserSummary;
 import ru.basted.ithelpdesk.user.entity.User;
+import ru.basted.ithelpdesk.user.entity.UserRole;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
 
 @Service
@@ -59,6 +60,13 @@ public class CommentServiceImpl implements CommentService {
         }
 
         User author = currentUser.get();
+
+        if (author.getRole() == UserRole.AGENT
+                && !author.getId().equals(ticket.getAssigneeId())) {
+            throw new ConflictException(
+                    "Специалист может писать сообщения только в заявке, взятой им в работу"
+            );
+        }
 
         Comment comment = mapper.toEntity(createRequest);
         comment.setCreatedAt(LocalDateTime.now());
