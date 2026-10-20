@@ -162,7 +162,7 @@ ru.basted.ithelpdesk.<feature>/
 * Passwords must be encoded using `BCryptPasswordEncoder`.
 * Protect endpoints using declarative method security: `@PreAuthorize("hasRole('ADMIN')")`.
 * Ensure ownership checks: Only the creator of a ticket can confirm closing or reopening it.
-* **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists.
+* **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists and derives granted authorities from the current database role (so role changes apply immediately), plus validates the token issuer.
 * **Login rate limit:** Failed login attempts per email are limited (`app.rate-limit.max-attempts`, default 5 per 5 minutes) and respond `429 Too Many Requests`.
 * **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
 
@@ -201,7 +201,7 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
 | `POST` | `/tickets` | Register a new ticket (BP-1) | `EMPLOYEE` | `201 Created`, `400 Bad Request` |
-| `GET` | `/tickets` | List tickets (with filters by status/role) | Authenticated | `200 OK` |
+| `GET` | `/tickets` | List tickets (with filters by status/role). `EMPLOYEE` receives only own tickets; `AGENT`/`ADMIN` receive all | Authenticated | `200 OK` |
 | `GET` | `/tickets/{id}` | Get full ticket details with messages | Authenticated | `200 OK`, `404 Not Found` |
 | `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` |
 | `PATCH`| `/tickets/{id}/status` | Transition status (BP-4, 5, 6, 7) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request` |
@@ -212,7 +212,7 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 | `POST` | `/tickets/{id}/messages`| Post a message in the ticket thread (BP-3)| Authenticated; `AGENT` must be the assignee | `201 Created`, `400 Bad Request`, `409 Conflict` |
 | `GET` | `/tickets/{id}/messages` | List messages of the ticket thread in chronological order | Authenticated | `200 OK`, `404 Not Found` |
 
-An agent can always read the thread but may post only when the ticket is assigned to that agent (BP-2 completed). Otherwise the API returns `409 Conflict`.
+An agent can always read the thread but may post only when the ticket is assigned to that agent (BP-2 completed). An employee may post only in their own tickets. Otherwise the API returns `409 Conflict`.
 
 ### 7.4. Categories Management (Admin CRUD)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
