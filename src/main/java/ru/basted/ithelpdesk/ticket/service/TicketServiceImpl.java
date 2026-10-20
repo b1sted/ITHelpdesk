@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.ticket.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,8 +13,6 @@ import ru.basted.ithelpdesk.category.repository.CategoryRepository;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
-import ru.basted.ithelpdesk.department.entity.Department;
-import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.message.dto.MessageResponse;
 import ru.basted.ithelpdesk.message.service.MessageService;
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
@@ -25,15 +24,16 @@ import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.user.dto.UserSummary;
 import ru.basted.ithelpdesk.user.entity.User;
-import ru.basted.ithelpdesk.user.repository.UserRepository;
+import ru.basted.ithelpdesk.user.entity.UserRole;
 
 @Service
 public class TicketServiceImpl implements TicketService {
+    private static final Set<TicketStatus> RESOLVABLE_STATUSES =
+            Set.of(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_USER, TicketStatus.ANSWERED);
+
     private final TicketRepository repository;
     private final TicketMapper mapper;
     private final CategoryRepository categoryRepository;
-    private final UserRepository userRepository;
-    private final DepartmentRepository departmentRepository;
     private final MessageService messageService;
     private final CurrentUser currentUser;
 
@@ -41,16 +41,12 @@ public class TicketServiceImpl implements TicketService {
             TicketRepository repository,
             TicketMapper mapper,
             CategoryRepository categoryRepository,
-            UserRepository userRepository,
-            DepartmentRepository departmentRepository,
             MessageService messageService,
             CurrentUser currentUser
     ) {
         this.repository = repository;
         this.mapper = mapper;
         this.categoryRepository = categoryRepository;
-        this.userRepository = userRepository;
-        this.departmentRepository = departmentRepository;
         this.messageService = messageService;
         this.currentUser = currentUser;
     }
@@ -59,27 +55,24 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     public TicketResponse createTicket(TicketCreateRequest createRequest) {
         User creator = currentUser.get();
-        validateCategory(createRequest.categoryId());
+        Category category = findCategory(createRequest.categoryId());
 
         Ticket ticket = mapper.toEntity(createRequest);
         ticket.setStatus(TicketStatus.NEW);
         ticket.setCreatedAt(LocalDateTime.now());
-        ticket.setCreatorId(creator.getId());
+        ticket.setCreator(creator);
+        ticket.setCategory(category);
 
-        Ticket savedTicket = repository.save(ticket);
-
-        return toResponse(savedTicket, false);
+        return toResponse(repository.save(ticket), false);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TicketResponse> getAllTickets(TicketStatus status) {
-        List<Ticket> tickets;
-        if (status != null) {
-            tickets = repository.findAllByStatusOrderByCreatedAtDesc(status);
-        } else {
-            tickets = repository.findAllByOrderByCreatedAtDesc();
-        }
+        User viewer = currentUser.get();
+        List<Ticket> tickets = viewer.getRole() == UserRole.EMPLOYEE
+                ? findOwnTickets(viewer, status)
+                : findAllTickets(status);
 
         return tickets.stream()
                 .map(ticket -> toResponse(ticket, false))
@@ -89,26 +82,21 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional(readOnly = true)
     public TicketResponse getTicketDetails(Long id) {
-        Ticket ticket = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найдена заявка с ID " + id));
-
-        return toResponse(ticket, true);
+        return toResponse(findTicket(id), true);
     }
 
     @Override
     @Transactional
     public TicketResponse assignTicket(Long id) {
-        Ticket ticket = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найдена заявка с ID " + id));
+        Ticket ticket = findTicket(id);
 
         if (ticket.getStatus() != TicketStatus.NEW) {
             throw new ConflictException(
-                    "Нельзя взять в работу заявку в статусе " + ticket.getStatus()
+                    "Нельзя взять в работу заявку в статусе %s".formatted(ticket.getStatus())
             );
         }
 
-        User assignee = currentUser.get();
-        ticket.setAssigneeId(assignee.getId());
+        ticket.setAssignee(currentUser.get());
         ticket.setStatus(TicketStatus.IN_PROGRESS);
 
         return toResponse(repository.save(ticket), false);
@@ -117,70 +105,79 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     public TicketResponse changeStatus(Long id, TicketStatusChangeRequest changeRequest) {
-        Ticket ticket = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найдена заявка с ID " + id));
-
+        Ticket ticket = findTicket(id);
         User user = currentUser.get();
-        TicketStatus target = changeRequest.status();
 
-        switch (target) {
+        Ticket updated = switch (changeRequest.status()) {
             case WAITING_USER -> pauseTicket(ticket, user);
             case RESOLVED -> resolveTicket(ticket, user);
             case CLOSED -> closeTicket(ticket, user);
             case IN_PROGRESS -> resumeOrReopenTicket(ticket, user, changeRequest.reason());
-            default -> throw new IllegalArgumentException(
-                    "Недопустимый целевой статус " + target + " для изменения заявки"
+            case NEW -> throw new IllegalArgumentException(
+                    "Недопустимый целевой статус NEW для изменения заявки"
             );
-        }
+            default -> throw new IllegalArgumentException("Новый статус заявки обязателен");
+        };
 
-        return toResponse(repository.save(ticket), false);
+        return toResponse(repository.save(updated), false);
     }
 
-    private void pauseTicket(Ticket ticket, User user) {
+    private Ticket pauseTicket(Ticket ticket, User user) {
         checkRule(ticket.getStatus() == TicketStatus.IN_PROGRESS,
                 "Приостановить заявку может только исполнитель в статусе IN_PROGRESS");
-        checkRule(user.getId().equals(ticket.getAssigneeId()),
+        checkOwnership(user, ticket.getAssignee(),
                 "Приостановить заявку может только назначенный исполнитель");
 
         ticket.setStatus(TicketStatus.WAITING_USER);
+        return ticket;
     }
 
-    private void resolveTicket(Ticket ticket, User user) {
-        checkRule(ticket.getStatus() == TicketStatus.IN_PROGRESS
-                        || ticket.getStatus() == TicketStatus.WAITING_USER
-                        || ticket.getStatus() == TicketStatus.ANSWERED,
+    private Ticket resolveTicket(Ticket ticket, User user) {
+        checkRule(RESOLVABLE_STATUSES.contains(ticket.getStatus()),
                 "Отметить заявку решённой можно только из статусов IN_PROGRESS, WAITING_USER или ANSWERED");
-        checkRule(user.getId().equals(ticket.getAssigneeId()),
+        checkOwnership(user, ticket.getAssignee(),
                 "Отметить заявку решённой может только назначенный исполнитель");
 
         ticket.setStatus(TicketStatus.RESOLVED);
+        return ticket;
     }
 
-    private void closeTicket(Ticket ticket, User user) {
+    private Ticket closeTicket(Ticket ticket, User user) {
         checkRule(ticket.getStatus() == TicketStatus.RESOLVED,
                 "Закрыть заявку можно только из статуса RESOLVED");
-        checkRule(user.getId().equals(ticket.getCreatorId()),
+        checkOwnership(user, ticket.getCreator(),
                 "Закрыть заявку может только её автор");
 
         ticket.setStatus(TicketStatus.CLOSED);
+        return ticket;
     }
 
-    private void resumeOrReopenTicket(Ticket ticket, User user, String reason) {
-        if (ticket.getStatus() == TicketStatus.ANSWERED) {
-            checkRule(user.getId().equals(ticket.getAssigneeId()),
-                    "Возобновить заявку может только назначенный исполнитель");
-            ticket.setStatus(TicketStatus.IN_PROGRESS);
-            return;
-        }
+    private Ticket resumeOrReopenTicket(Ticket ticket, User user, String reason) {
+        return switch (ticket.getStatus()) {
+            case ANSWERED -> resumeWork(ticket, user);
+            case RESOLVED -> reopenTicket(ticket, user, reason);
+            default -> throw new ConflictException(
+                    "Вернуть заявку на доработку можно только из статуса RESOLVED"
+            );
+        };
+    }
 
-        checkRule(ticket.getStatus() == TicketStatus.RESOLVED,
-                "Вернуть заявку на доработку можно только из статуса RESOLVED");
-        checkRule(user.getId().equals(ticket.getCreatorId()),
+    private Ticket resumeWork(Ticket ticket, User user) {
+        checkOwnership(user, ticket.getAssignee(),
+                "Возобновить заявку может только назначенный исполнитель");
+
+        ticket.setStatus(TicketStatus.IN_PROGRESS);
+        return ticket;
+    }
+
+    private Ticket reopenTicket(Ticket ticket, User user, String reason) {
+        checkOwnership(user, ticket.getCreator(),
                 "Вернуть заявку на доработку может только её автор");
         checkRule(StringUtils.hasText(reason),
                 "Для возврата заявки на доработку требуется причина");
 
         ticket.setStatus(TicketStatus.IN_PROGRESS);
+        return ticket;
     }
 
     private void checkRule(boolean condition, String message) {
@@ -189,21 +186,39 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
-    private void validateCategory(Long categoryId) {
-        if (!categoryRepository.existsById(categoryId)) {
-            throw new NotFoundException("Не найдена категория с ID " + categoryId);
-        }
+    private void checkOwnership(User user, User expected, String message) {
+        checkRule(expected != null && user.getId().equals(expected.getId()), message);
+    }
+
+    private List<Ticket> findOwnTickets(User viewer, TicketStatus status) {
+        return status == null
+                ? repository.findAllByCreatorIdOrderByCreatedAtDesc(viewer.getId())
+                : repository.findAllByCreatorIdAndStatusOrderByCreatedAtDesc(viewer.getId(), status);
+    }
+
+    private List<Ticket> findAllTickets(TicketStatus status) {
+        return status == null
+                ? repository.findAllByOrderByCreatedAtDesc()
+                : repository.findAllByStatusOrderByCreatedAtDesc(status);
+    }
+
+    private Ticket findTicket(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Не найдена заявка с ID %d".formatted(id)));
+    }
+
+    private Category findCategory(Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new NotFoundException(
+                        "Не найдена категория с ID %d".formatted(categoryId)
+                ));
     }
 
     private TicketResponse toResponse(Ticket ticket, boolean withMessages) {
-        UserSummary creator = toSummary(ticket.getCreatorId());
-        UserSummary assignee = ticket.getAssigneeId() == null
+        UserSummary creator = toSummary(ticket.getCreator());
+        UserSummary assignee = ticket.getAssignee() == null
                 ? null
-                : toSummary(ticket.getAssigneeId());
-
-        String categoryName = categoryRepository.findById(ticket.getCategoryId())
-                .map(Category::getName)
-                .orElse(null);
+                : toSummary(ticket.getAssignee());
 
         List<MessageResponse> messages = withMessages
                 ? messageService.getMessagesByTicket(ticket.getId())
@@ -217,25 +232,17 @@ public class TicketServiceImpl implements TicketService {
                 ticket.getCreatedAt(),
                 creator,
                 assignee,
-                categoryName,
+                ticket.getCategory().getName(),
                 messages
         );
     }
 
-    private UserSummary toSummary(Long userId) {
-        return userRepository.findById(userId)
-                .map(user -> new UserSummary(
-                        user.getId(),
-                        user.getFullName(),
-                        user.getEmail(),
-                        departmentName(user)
-                ))
-                .orElseThrow(() -> new NotFoundException("Не найден пользователь с ID " + userId));
-    }
-
-    private String departmentName(User user) {
-        return departmentRepository.findById(user.getDepartmentId())
-                .map(Department::getName)
-                .orElse(null);
+    private UserSummary toSummary(User user) {
+        return new UserSummary(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getDepartment().getName()
+        );
     }
 }

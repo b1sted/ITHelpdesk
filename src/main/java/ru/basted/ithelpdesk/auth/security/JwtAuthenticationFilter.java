@@ -17,6 +17,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.jspecify.annotations.NonNull;
 
+import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
 
 @Component
@@ -40,36 +41,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith(BEARER_PREFIX)
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
-            String token = header.substring(BEARER_PREFIX.length());
-            try {
-                Jwt jwt = jwtService.decode(token);
-                String email = jwt.getSubject();
-                Object uidClaim = jwt.getClaim("uid");
-                String role = jwt.getClaimAsString("role");
-
-                if (uidClaim instanceof Number uid) {
-                    Long userId = uid.longValue();
-                    if (userRepository.findById(userId)
-                            .filter(user -> user.getEmail().equals(email))
-                            .isPresent()) {
-                        UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        email,
-                                        null,
-                                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                                );
-                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                        filterChain.doFilter(request, response);
-                        return;
-                    }
-                }
-                SecurityContextHolder.clearContext();
-            } catch (RuntimeException ex) {
-                SecurityContextHolder.clearContext();
-            }
+            authenticate(header.substring(BEARER_PREFIX.length()), request);
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(String token, HttpServletRequest request) {
+        try {
+            Jwt jwt = jwtService.decode(token);
+            String email = jwt.getSubject();
+            Object uidClaim = jwt.getClaim("uid");
+
+            if (!(uidClaim instanceof Number uid)) {
+                return;
+            }
+
+            userRepository.findById(uid.longValue())
+                    .filter(user -> user.getEmail().equals(email))
+                    .ifPresent(user -> setAuthentication(user, request));
+        } catch (RuntimeException ex) {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    private void setAuthentication(User user, HttpServletRequest request) {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        user.getEmail(),
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                );
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

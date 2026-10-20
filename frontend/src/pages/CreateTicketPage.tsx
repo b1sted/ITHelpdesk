@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { getErrorMessage } from '../api/errorMessage';
 import { createTicket, getCategories } from '../api/ticketsApi';
 import type { CategoryResponse } from '../types/ticket';
 
@@ -35,10 +36,7 @@ export function CreateTicketPage() {
       });
       navigate(`/tickets/${ticket.id}`);
     } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
-        'Не удалось создать заявку';
-      setError(message);
+      setError(getErrorMessage(err, 'Не удалось создать заявку'));
     } finally {
       setSubmitting(false);
     }

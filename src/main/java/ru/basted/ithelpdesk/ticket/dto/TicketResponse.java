@@ -29,7 +29,7 @@ public record TicketResponse(
     @Schema(description = "Автор заявки")
     UserSummary creator,
 
-    @Schema(description = "Исполнитель заявки")
+    @Schema(description = "Исполнитель заявки", nullable = true)
     UserSummary assignee,
 
     @Schema(description = "Название категории инцидента", example = "Оборудование")

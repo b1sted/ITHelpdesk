@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,7 +50,7 @@ public interface CategoryAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список категорий",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = CategoryResponse.class),
+                            array = @ArraySchema(schema = @Schema(implementation = CategoryResponse.class)),
                             examples = @ExampleObject(value = CATEGORY_LIST_JSON))),
             @ApiResponse(responseCode = "404",
                     description = "Ресурс не найден или требуется аутентификация",
@@ -83,7 +84,7 @@ public interface CategoryAPI {
     ResponseEntity<CategoryResponse> getCategoryById(
             @Parameter(description = "Уникальный идентификатор категории", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 
     @Operation(
@@ -120,7 +121,10 @@ public interface CategoryAPI {
             description = "Изменение имени существующей категории. Доступна только администраторам."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Имя категории успешно изменено"),
+            @ApiResponse(responseCode = "200", description = "Имя категории успешно изменено",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = CategoryResponse.class),
+                            examples = @ExampleObject(value = CATEGORY_JSON))),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
@@ -136,10 +140,10 @@ public interface CategoryAPI {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    ResponseEntity<Void> updateName(
+    ResponseEntity<CategoryResponse> updateName(
             @Parameter(description = "Уникальный идентификатор категории", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id,
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
 
             @Valid @RequestBody CategoryChangeName changeName
     );
@@ -164,6 +168,6 @@ public interface CategoryAPI {
     ResponseEntity<Void> deleteCategory(
             @Parameter(description = "Уникальный идентификатор категории", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 }

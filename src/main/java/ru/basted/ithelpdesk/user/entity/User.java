@@ -4,9 +4,14 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import ru.basted.ithelpdesk.core.model.BaseEntity;
+import ru.basted.ithelpdesk.department.entity.Department;
 
 @Entity
 @Table(name = "users")
@@ -24,8 +29,10 @@ public class User extends BaseEntity {
     @Column(name = "role", nullable = false, length = 20)
     private UserRole role;
 
-    @Column(name = "department_id", nullable = false)
-    private Long departmentId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "department_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_users_department_id"))
+    private Department department;
 
     public String getFullName() {
         return fullName;
@@ -59,11 +66,11 @@ public class User extends BaseEntity {
         this.role = role;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
+    public Department getDepartment() {
+        return department;
     }
 
-    public void setDepartmentId(Long departmentId) {
-        this.departmentId = departmentId;
+    public void setDepartment(Department department) {
+        this.department = department;
     }
 }

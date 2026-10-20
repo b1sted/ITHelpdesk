@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -52,7 +53,7 @@ public interface UserAPI {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список пользователей",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = UserResponse.class),
+                            array = @ArraySchema(schema = @Schema(implementation = UserResponse.class)),
                             examples = @ExampleObject(value = USER_LIST_JSON))),
             @ApiResponse(responseCode = "404",
                     description = "Ресурс не найден или недостаточно прав",
@@ -88,7 +89,7 @@ public interface UserAPI {
     ResponseEntity<UserResponse> getUserById(
             @Parameter(description = "Уникальный идентификатор пользователя", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 
     @Operation(
@@ -148,7 +149,7 @@ public interface UserAPI {
     ResponseEntity<UserResponse> updateUser(
             @Parameter(description = "Уникальный идентификатор пользователя", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id,
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
 
             @Valid @RequestBody UserUpdateRequest updateRequest
     );
@@ -173,6 +174,6 @@ public interface UserAPI {
     ResponseEntity<Void> deleteUser(
             @Parameter(description = "Уникальный идентификатор пользователя", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 }

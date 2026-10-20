@@ -10,6 +10,6 @@ public interface DepartmentService {
     DepartmentResponse getDepartmentById(Long id);
 
     DepartmentResponse createDepartment(DepartmentCreateRequest createRequest);
-    void updateName(Long id, String name);
+    DepartmentResponse updateName(Long id, String name);
     void deleteDepartment(Long id);
 }

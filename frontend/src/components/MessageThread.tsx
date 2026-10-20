@@ -37,6 +37,8 @@ export function MessageThread({
     try {
       await onAddMessage(text);
       setText('');
+    } catch {
+      // The parent component renders the error message.
     } finally {
       setSubmitting(false);
     }

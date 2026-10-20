@@ -33,6 +33,7 @@ public interface AuthAPI {
                             schema = @Schema(implementation = AuthResponse.class),
                             examples = @ExampleObject(value = """
                                     {
+                                      "id": 1,
                                       "token": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJpdGhlbHBkZXNrIiwic3ViIjoiaXZhbm92LmlpQGNvbXBhbnkucnUiLCJyb2xlIjoiRU1QTE9ZRUUiLCJleHAiOjE3OTIzNjY4NTksImlhdCI6MTc5MjI4MDQ1OX0.ExampleSignature",
                                       "email": "ivanov.ii@company.ru",
                                       "fullName": "Иванов Иван Иванович",
@@ -47,7 +48,13 @@ public interface AuthAPI {
                     description = "Неверные учётные данные",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = "{\"message\":\"Неверные учётные данные\"}")))
+                            examples = @ExampleObject(value = "{\"message\":\"Неверные учётные данные\"}"))),
+            @ApiResponse(responseCode = "429",
+                    description = "Превышен лимит попыток входа",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(
+                                    value = "{\"message\":\"Слишком много попыток входа. Попробуйте позже.\"}")))
     })
     @PostMapping("/login")
     ResponseEntity<AuthResponse> login(

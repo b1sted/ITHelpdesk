@@ -1,5 +1,7 @@
 package ru.basted.ithelpdesk.auth.service;
 
+import java.util.Locale;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,10 +38,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest loginRequest) {
-        String key = "login:" + loginRequest.email().toLowerCase().trim();
+        String email = loginRequest.email().trim().toLowerCase(Locale.ROOT);
+        String key = "login:" + email;
         rateLimiter.check(key);
 
-        User user = userRepository.findByEmail(loginRequest.email())
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new NotFoundException(INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
@@ -50,6 +53,7 @@ public class AuthServiceImpl implements AuthService {
         String token = jwtService.generateToken(user);
 
         return new AuthResponse(
+                user.getId(),
                 token,
                 user.getEmail(),
                 user.getFullName(),

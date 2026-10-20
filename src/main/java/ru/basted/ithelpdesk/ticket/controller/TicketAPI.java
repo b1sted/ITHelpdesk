@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -105,12 +106,13 @@ public interface TicketAPI {
 
     @Operation(
             summary = "Получить список заявок",
-            description = "Возвращает список заявок. Можно отфильтровать по статусу"
+            description = "Возвращает список заявок. Сотрудник видит только свои заявки, "
+                    + "специалист и администратор — все. Можно отфильтровать по статусу"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список заявок",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = TicketResponse.class),
+                            array = @ArraySchema(schema = @Schema(implementation = TicketResponse.class)),
                             examples = @ExampleObject(value = TICKET_LIST_JSON))),
             @ApiResponse(responseCode = "404",
                     description = "Ресурс не найден или требуется аутентификация",
@@ -146,7 +148,7 @@ public interface TicketAPI {
     ResponseEntity<TicketResponse> getTicketById(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 
     @Operation(
@@ -176,7 +178,7 @@ public interface TicketAPI {
     ResponseEntity<TicketResponse> assignTicket(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id
     );
 
     @Operation(
@@ -210,7 +212,7 @@ public interface TicketAPI {
     ResponseEntity<TicketResponse> changeStatus(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("id")
-            @Min(value = 1, message = "ID не может быть меньше нуля") Long id,
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
 
             @Valid @RequestBody TicketStatusChangeRequest changeRequest
     );

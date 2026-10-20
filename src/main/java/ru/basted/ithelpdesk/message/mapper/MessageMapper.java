@@ -9,7 +9,7 @@ import ru.basted.ithelpdesk.message.entity.Message;
 @Mapper
 public interface MessageMapper {
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "ticketId", ignore = true)
-    @Mapping(target = "authorId", ignore = true)
+    @Mapping(target = "ticket", ignore = true)
+    @Mapping(target = "author", ignore = true)
     Message toEntity(MessageCreateRequest dto);
 }

@@ -3,6 +3,7 @@ package ru.basted.ithelpdesk.auth.security;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -22,34 +23,26 @@ public class LoginRateLimiter {
         this.windowSeconds = windowSeconds;
     }
 
-    public synchronized void check(String key) {
+    public void check(String key) {
         long now = Instant.now().getEpochSecond();
-        AttemptWindow window = attempts.computeIfAbsent(key, k -> new AttemptWindow(now, 0));
 
-        if (now - window.start > windowSeconds) {
-            window.start = now;
-            window.count = 0;
-        }
+        AttemptWindow window = attempts.compute(key, (ignored, existing) ->
+                existing == null || now - existing.start() > windowSeconds
+                        ? new AttemptWindow(now, new AtomicInteger())
+                        : existing
+        );
 
-        window.count++;
-        if (window.count > maxAttempts) {
+        if (window.count().incrementAndGet() > maxAttempts) {
             throw new RateLimitExceededException(
                     "Слишком много попыток входа. Попробуйте позже."
             );
         }
     }
 
-    public synchronized void reset(String key) {
+    public void reset(String key) {
         attempts.remove(key);
     }
 
-    private static final class AttemptWindow {
-        private long start;
-        private int count;
-
-        private AttemptWindow(long start, int count) {
-            this.start = start;
-            this.count = count;
-        }
+    private record AttemptWindow(long start, AtomicInteger count) {
     }
 }

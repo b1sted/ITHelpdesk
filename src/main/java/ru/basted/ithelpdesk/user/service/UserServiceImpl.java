@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.user.service;
 
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,10 +49,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
-        User user = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найден пользователь с ID " + id));
-
-        return toResponse(user);
+        return toResponse(findUser(id));
     }
 
     @Override
@@ -59,23 +57,23 @@ public class UserServiceImpl implements UserService {
     public UserResponse createUser(UserCreateRequest createRequest) {
         if (repository.existsByEmail(createRequest.email())) {
             throw new ConflictException(
-                    "Пользователь с электронной почтой " + createRequest.email() + " уже существует"
+                    "Пользователь с электронной почтой %s уже существует"
+                            .formatted(createRequest.email())
             );
         }
-        validateDepartment(createRequest.departmentId());
+        Department department = findDepartment(createRequest.departmentId());
 
         User user = mapper.toEntity(createRequest);
         user.setPassword(passwordEncoder.encode(createRequest.password()));
-        User savedUser = repository.save(user);
+        user.setDepartment(department);
 
-        return toResponse(savedUser);
+        return toResponse(repository.save(user));
     }
 
     @Override
     @Transactional
     public UserResponse updateUser(Long id, UserUpdateRequest updateRequest) {
-        User user = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найден пользователь с ID " + id));
+        User user = findUser(id);
 
         if (updateRequest.fullName() != null) {
             user.setFullName(updateRequest.fullName());
@@ -85,7 +83,7 @@ public class UserServiceImpl implements UserService {
             String email = updateRequest.email();
             if (!email.equals(user.getEmail()) && repository.existsByEmail(email)) {
                 throw new ConflictException(
-                        "Пользователь с электронной почтой " + email + " уже существует"
+                        "Пользователь с электронной почтой %s уже существует".formatted(email)
                 );
             }
             user.setEmail(email);
@@ -96,8 +94,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (updateRequest.departmentId() != null) {
-            validateDepartment(updateRequest.departmentId());
-            user.setDepartmentId(updateRequest.departmentId());
+            user.setDepartment(findDepartment(updateRequest.departmentId()));
         }
 
         return toResponse(repository.save(user));
@@ -106,30 +103,39 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUser(Long id) {
-        if (!repository.existsById(id)) {
-            throw new NotFoundException("Не найден пользователь с ID " + id);
-        }
+        User user = findUser(id);
 
-        repository.deleteById(id);
+        try {
+            repository.delete(user);
+            repository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException(
+                    "Нельзя удалить пользователя, у которого есть заявки или сообщения"
+            );
+        }
     }
 
-    private void validateDepartment(Long departmentId) {
-        if (!departmentRepository.existsById(departmentId)) {
-            throw new NotFoundException("Не найден департамент с ID " + departmentId);
-        }
+    private User findUser(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException(
+                        "Не найден пользователь с ID %d".formatted(id)
+                ));
+    }
+
+    private Department findDepartment(Long departmentId) {
+        return departmentRepository.findById(departmentId)
+                .orElseThrow(() -> new NotFoundException(
+                        "Не найден департамент с ID %d".formatted(departmentId)
+                ));
     }
 
     private UserResponse toResponse(User user) {
-        String departmentName = departmentRepository.findById(user.getDepartmentId())
-                .map(Department::getName)
-                .orElse(null);
-
         return new UserResponse(
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
-                departmentName
+                user.getDepartment().getName()
         );
     }
 }

@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.category.service;
 
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,10 +36,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
-        Category category = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найдена категория с ID " + id));
-
-        return mapper.toResponseDto(category);
+        return mapper.toResponseDto(findCategory(id));
     }
 
     @Override
@@ -46,31 +44,48 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryResponse createCategory(CategoryCreateRequest createRequest) {
         if (repository.existsByName(createRequest.name())) {
             throw new ConflictException(
-                    "Категория с именем " + createRequest.name() + " уже существует в базе данных"
+                    "Категория с именем %s уже существует в базе данных"
+                            .formatted(createRequest.name())
             );
         }
 
-        Category category = mapper.toEntity(createRequest);
-        Category savedCategory = repository.save(category);
-
-        return mapper.toResponseDto(savedCategory);
+        return mapper.toResponseDto(repository.save(mapper.toEntity(createRequest)));
     }
 
     @Override
     @Transactional
-    public void updateName(Long id, String name) {
-        Category category = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найдена категория с ID " + id));
+    public CategoryResponse updateName(Long id, String name) {
+        Category category = findCategory(id);
+
+        if (repository.existsByNameAndIdNot(name, id)) {
+            throw new ConflictException(
+                    "Категория с именем %s уже существует в базе данных".formatted(name)
+            );
+        }
+
         category.setName(name);
+        return mapper.toResponseDto(repository.save(category));
     }
 
     @Override
     @Transactional
     public void deleteCategory(Long id) {
-        if (!repository.existsById(id)) {
-            throw new NotFoundException("Не найдена категория с ID " + id);
-        }
+        Category category = findCategory(id);
 
-        repository.deleteById(id);
+        try {
+            repository.delete(category);
+            repository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException(
+                    "Нельзя удалить категорию, к которой привязаны заявки"
+            );
+        }
+    }
+
+    private Category findCategory(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException(
+                        "Не найдена категория с ID %d".formatted(id)
+                ));
     }
 }

@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.department.service;
 
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,10 +36,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional(readOnly = true)
     public DepartmentResponse getDepartmentById(Long id) {
-        Department department = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найден департамент с ID " + id));
-
-        return mapper.toResponseDto(department);
+        return mapper.toResponseDto(findDepartment(id));
     }
 
     @Override
@@ -46,31 +44,48 @@ public class DepartmentServiceImpl implements DepartmentService {
     public DepartmentResponse createDepartment(DepartmentCreateRequest createRequest) {
         if (repository.existsByName(createRequest.name())) {
             throw new ConflictException(
-                    "Департамент с именем " + createRequest.name() + " уже существует в базе данных"
+                    "Департамент с именем %s уже существует в базе данных"
+                            .formatted(createRequest.name())
             );
         }
 
-        Department department = mapper.toEntity(createRequest);
-        Department savedDepartment = repository.save(department);
-
-        return mapper.toResponseDto(savedDepartment);
+        return mapper.toResponseDto(repository.save(mapper.toEntity(createRequest)));
     }
 
     @Override
     @Transactional
-    public void updateName(Long id, String name) {
-        Department department = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Не найден департамент с ID " + id));
+    public DepartmentResponse updateName(Long id, String name) {
+        Department department = findDepartment(id);
+
+        if (repository.existsByNameAndIdNot(name, id)) {
+            throw new ConflictException(
+                    "Департамент с именем %s уже существует в базе данных".formatted(name)
+            );
+        }
+
         department.setName(name);
+        return mapper.toResponseDto(repository.save(department));
     }
 
     @Override
     @Transactional
     public void deleteDepartment(Long id) {
-        if (!repository.existsById(id)) {
-            throw new NotFoundException("Не найден департамент с ID " + id);
-        }
+        Department department = findDepartment(id);
 
-        repository.deleteById(id);
+        try {
+            repository.delete(department);
+            repository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException(
+                    "Нельзя удалить департамент, к которому привязаны пользователи"
+            );
+        }
+    }
+
+    private Department findDepartment(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException(
+                        "Не найден департамент с ID %d".formatted(id)
+                ));
     }
 }
