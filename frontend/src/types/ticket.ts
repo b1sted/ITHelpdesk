@@ -3,7 +3,7 @@ import type { UserSummary } from './user';
 
 export type { TicketStatus } from './auth';
 
-export interface CommentResponse {
+export interface MessageResponse {
   id: number;
   text: string;
   createdAt: string;
@@ -20,7 +20,7 @@ export interface TicketResponse {
   creator: UserSummary;
   assignee: UserSummary | null;
   categoryName: string;
-  comments: CommentResponse[];
+  messages: MessageResponse[];
 }
 
 export interface TicketCreateRequest {
@@ -31,7 +31,7 @@ export interface TicketCreateRequest {
 
 export interface TicketStatusChangeRequest {
   status: TicketStatus;
-  comment?: string;
+  reason?: string;
 }
 
 export interface CategoryResponse {

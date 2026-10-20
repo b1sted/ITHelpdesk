@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Send } from 'lucide-react';
-import type { CommentResponse } from '../types/ticket';
+import type { MessageResponse } from '../types/ticket';
 
-interface CommentThreadProps {
-  comments: CommentResponse[];
-  onAddComment: (text: string) => Promise<void>;
-  canComment?: boolean;
+interface MessageThreadProps {
+  messages: MessageResponse[];
+  onAddMessage: (text: string) => Promise<void>;
+  canMessage?: boolean;
 }
 
 function formatDate(value: string): string {
@@ -18,7 +18,7 @@ function formatDate(value: string): string {
   });
 }
 
-export function CommentThread({ comments, onAddComment, canComment = true }: CommentThreadProps) {
+export function MessageThread({ messages, onAddMessage, canMessage = true }: MessageThreadProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,7 +29,7 @@ export function CommentThread({ comments, onAddComment, canComment = true }: Com
     }
     setSubmitting(true);
     try {
-      await onAddComment(text);
+      await onAddMessage(text);
       setText('');
     } finally {
       setSubmitting(false);
@@ -38,28 +38,28 @@ export function CommentThread({ comments, onAddComment, canComment = true }: Com
 
   return (
     <div className="mt-6">
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">Обсуждение</h3>
+      <h3 className="mb-3 text-sm font-semibold text-slate-700">Переписка</h3>
       <div className="space-y-3">
-        {comments.length === 0 && (
-          <p className="text-sm text-slate-400">Комментариев пока нет.</p>
+        {messages.length === 0 && (
+          <p className="text-sm text-slate-400">Сообщений пока нет.</p>
         )}
-        {comments.map((comment) => (
-          <div key={comment.id} className="rounded-lg border border-slate-200 bg-white p-3">
+        {messages.map((message) => (
+          <div key={message.id} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex items-baseline justify-between">
-              <span className="text-sm font-medium text-slate-800">{comment.author.fullName}</span>
-              <span className="text-xs text-slate-400">{formatDate(comment.createdAt)}</span>
+              <span className="text-sm font-medium text-slate-800">{message.author.fullName}</span>
+              <span className="text-xs text-slate-400">{formatDate(message.createdAt)}</span>
             </div>
-            <p className="mt-1 text-sm text-slate-600">{comment.text}</p>
+            <p className="mt-1 text-sm text-slate-600">{message.text}</p>
           </div>
         ))}
       </div>
-      {canComment && (
+      {canMessage && (
         <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
           <input
             type="text"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Написать комментарий..."
+            placeholder="Написать сообщение..."
             className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
           />
           <button

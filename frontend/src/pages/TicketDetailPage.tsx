@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import {
-  addComment,
+  addMessage,
   assignTicket,
   changeTicketStatus,
   getTicket,
 } from '../api/ticketsApi';
-import { CommentThread } from '../components/CommentThread';
+import { MessageThread } from '../components/MessageThread';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import type { TicketStatus, TicketResponse } from '../types/ticket';
@@ -30,7 +30,7 @@ export function TicketDetailPage() {
   const [ticket, setTicket] = useState<TicketResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [reopenComment, setReopenComment] = useState('');
+  const [reopenReason, setReopenReason] = useState('');
 
   const loadTicket = useCallback(() => {
     setLoading(true);
@@ -79,14 +79,14 @@ const isAgent = user?.role === 'AGENT';
   const handleStatus = async (status: 'WAITING_USER' | 'RESOLVED' | 'CLOSED' | 'IN_PROGRESS') => {
     await changeTicketStatus(ticket.id, {
       status,
-      comment: status === 'IN_PROGRESS' ? reopenComment : undefined,
+      reason: status === 'IN_PROGRESS' ? reopenReason : undefined,
     });
-    setReopenComment('');
+    setReopenReason('');
     await refresh();
   };
 
-  const handleAddComment = async (text: string) => {
-    await addComment(ticket.id, text);
+  const handleAddMessage = async (text: string) => {
+    await addMessage(ticket.id, text);
     await refresh();
   };
 
@@ -95,7 +95,7 @@ const isAgent = user?.role === 'AGENT';
     (ticket.status === 'NEW' ||
       (isAssignee && ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status)));
   const canAuthorWork = isAuthor && ticket.status === 'RESOLVED';
-  const canComment = !['CLOSED'].includes(ticket.status);
+  const canMessage = !['CLOSED'].includes(ticket.status);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -152,7 +152,7 @@ const isAgent = user?.role === 'AGENT';
               </button>
               <button
                 onClick={() => handleStatus('IN_PROGRESS')}
-                disabled={!reopenComment.trim()}
+                disabled={!reopenReason.trim()}
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Вернуть на доработку
@@ -160,18 +160,18 @@ const isAgent = user?.role === 'AGENT';
             </div>
             <input
               type="text"
-              value={reopenComment}
-              onChange={(event) => setReopenComment(event.target.value)}
-              placeholder="Комментарий для возврата на доработку (обязательно)"
+              value={reopenReason}
+              onChange={(event) => setReopenReason(event.target.value)}
+              placeholder="Причина возврата на доработку (обязательно)"
               className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
             />
           </div>
         )}
 
-        <CommentThread
-          comments={ticket.comments}
-          onAddComment={handleAddComment}
-          canComment={canComment}
+        <MessageThread
+          messages={ticket.messages}
+          onAddMessage={handleAddMessage}
+          canMessage={canMessage}
         />
       </div>
     </div>

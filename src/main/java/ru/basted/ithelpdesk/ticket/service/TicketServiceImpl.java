@@ -9,13 +9,13 @@ import org.springframework.util.StringUtils;
 
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
-import ru.basted.ithelpdesk.comment.dto.CommentResponse;
-import ru.basted.ithelpdesk.comment.service.CommentService;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
 import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
+import ru.basted.ithelpdesk.message.dto.MessageResponse;
+import ru.basted.ithelpdesk.message.service.MessageService;
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
@@ -34,7 +34,7 @@ public class TicketServiceImpl implements TicketService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
-    private final CommentService commentService;
+    private final MessageService messageService;
     private final CurrentUser currentUser;
 
     public TicketServiceImpl(
@@ -43,7 +43,7 @@ public class TicketServiceImpl implements TicketService {
             CategoryRepository categoryRepository,
             UserRepository userRepository,
             DepartmentRepository departmentRepository,
-            CommentService commentService,
+            MessageService messageService,
             CurrentUser currentUser
     ) {
         this.repository = repository;
@@ -51,7 +51,7 @@ public class TicketServiceImpl implements TicketService {
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
-        this.commentService = commentService;
+        this.messageService = messageService;
         this.currentUser = currentUser;
     }
 
@@ -127,7 +127,7 @@ public class TicketServiceImpl implements TicketService {
             case WAITING_USER -> pauseTicket(ticket, user);
             case RESOLVED -> resolveTicket(ticket, user);
             case CLOSED -> closeTicket(ticket, user);
-            case IN_PROGRESS -> resumeOrReopenTicket(ticket, user, changeRequest.comment());
+            case IN_PROGRESS -> resumeOrReopenTicket(ticket, user, changeRequest.reason());
             default -> throw new IllegalArgumentException(
                     "Недопустимый целевой статус " + target + " для изменения заявки"
             );
@@ -165,7 +165,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setStatus(TicketStatus.CLOSED);
     }
 
-    private void resumeOrReopenTicket(Ticket ticket, User user, String comment) {
+    private void resumeOrReopenTicket(Ticket ticket, User user, String reason) {
         if (ticket.getStatus() == TicketStatus.ANSWERED) {
             checkRule(user.getId().equals(ticket.getAssigneeId()),
                     "Возобновить заявку может только назначенный исполнитель");
@@ -177,8 +177,8 @@ public class TicketServiceImpl implements TicketService {
                 "Вернуть заявку на доработку можно только из статуса RESOLVED");
         checkRule(user.getId().equals(ticket.getCreatorId()),
                 "Вернуть заявку на доработку может только её автор");
-        checkRule(StringUtils.hasText(comment),
-                "Для возврата заявки на доработку требуется комментарий");
+        checkRule(StringUtils.hasText(reason),
+                "Для возврата заявки на доработку требуется причина");
 
         ticket.setStatus(TicketStatus.IN_PROGRESS);
     }
@@ -195,7 +195,7 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
-    private TicketResponse toResponse(Ticket ticket, boolean withComments) {
+    private TicketResponse toResponse(Ticket ticket, boolean withMessages) {
         UserSummary creator = toSummary(ticket.getCreatorId());
         UserSummary assignee = ticket.getAssigneeId() == null
                 ? null
@@ -205,8 +205,8 @@ public class TicketServiceImpl implements TicketService {
                 .map(Category::getName)
                 .orElse(null);
 
-        List<CommentResponse> comments = withComments
-                ? commentService.getCommentsByTicket(ticket.getId())
+        List<MessageResponse> messages = withMessages
+                ? messageService.getMessagesByTicket(ticket.getId())
                 : List.of();
 
         return new TicketResponse(
@@ -218,7 +218,7 @@ public class TicketServiceImpl implements TicketService {
                 creator,
                 assignee,
                 categoryName,
-                comments
+                messages
         );
     }
 
