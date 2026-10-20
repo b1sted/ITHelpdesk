@@ -1,5 +1,5 @@
-import { LogOut, Headset, Settings } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LogOut, Headset, Settings, Ticket } from 'lucide-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const roleLabels: Record<string, string> = {
@@ -7,6 +7,12 @@ const roleLabels: Record<string, string> = {
   AGENT: 'Специалист',
   ADMIN: 'Администратор',
 };
+
+function navLinkClass({ isActive }: { isActive: boolean }): string {
+  return `flex items-center gap-1 rounded-md px-2 py-1 text-sm transition ${
+    isActive ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+  }`;
+}
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -21,18 +27,22 @@ export function Navbar() {
     <header className="h-[60px] bg-slate-900 text-white shadow-md">
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <Headset className="h-6 w-6 text-emerald-400" />
-          <span className="text-lg font-semibold">IT Helpdesk</span>
-          {user?.role === 'ADMIN' && (
-            <button
-              onClick={() => navigate('/admin')}
-              className="ml-2 flex items-center gap-1 rounded-md px-2 py-1 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              title="Панель администратора"
-            >
-              <Settings className="h-4 w-4" />
-              Администрирование
-            </button>
-          )}
+          <Link to="/" className="flex items-center gap-2">
+            <Headset className="h-6 w-6 text-emerald-400" />
+            <span className="text-lg font-semibold">IT Helpdesk</span>
+          </Link>
+          <nav className="ml-3 flex items-center gap-1">
+            <NavLink to="/" end className={navLinkClass}>
+              <Ticket className="h-4 w-4" />
+              Заявки
+            </NavLink>
+            {user?.role === 'ADMIN' && (
+              <NavLink to="/admin" className={navLinkClass} title="Панель администратора">
+                <Settings className="h-4 w-4" />
+                Администрирование
+              </NavLink>
+            )}
+          </nav>
         </div>
         {user && (
           <div className="flex items-center gap-4">

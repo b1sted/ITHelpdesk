@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Min;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,7 +54,8 @@ public interface MessageAPI {
 
     @Operation(
             summary = "Добавить сообщение в переписку по заявке",
-            description = "Добавление нового сообщения в переписку по заявке в ходе решения проблемы"
+            description = "Добавление нового сообщения в переписку по заявке в ходе решения проблемы. "
+                    + "Доступно автору заявки и назначенному специалисту"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Сообщение успешно добавлено",
@@ -83,6 +85,7 @@ public interface MessageAPI {
                             }))
     })
     @PostMapping("/{ticketId}/messages")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'AGENT')")
     ResponseEntity<MessageResponse> addMessage(
             @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
             @PathVariable("ticketId")

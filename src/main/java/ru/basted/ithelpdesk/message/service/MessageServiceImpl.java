@@ -77,6 +77,10 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void checkAuthorCanPost(Ticket ticket, User author) {
+        if (author.getRole() == UserRole.ADMIN) {
+            throw new ConflictException("Администратор не может писать сообщения в заявках");
+        }
+
         if (author.getRole() == UserRole.AGENT
                 && (ticket.getAssignee() == null
                 || !author.getId().equals(ticket.getAssignee().getId()))) {
