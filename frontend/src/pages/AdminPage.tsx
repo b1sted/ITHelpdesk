@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Users, Building2, Tags, Plus, Trash2, Pencil } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, Building2, Tags, Plus, Trash2, Pencil, Ticket } from 'lucide-react';
 import {
   createCategory,
   createDepartment,
@@ -36,10 +37,21 @@ export function AdminPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-2 text-xl font-semibold text-slate-800">Панель администратора</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Управление справочными данными, сотрудниками и их ролями. Здравствуйте, {user?.fullName}.
-      </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="mb-2 text-xl font-semibold text-slate-800">Панель администратора</h1>
+          <p className="text-sm text-slate-500">
+            Управление справочными данными, сотрудниками и их ролями. Здравствуйте, {user?.fullName}.
+          </p>
+        </div>
+        <Link
+          to="/"
+          className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          <Ticket className="h-4 w-4" />
+          К заявкам
+        </Link>
+      </div>
       {error && (
         <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
