@@ -37,8 +37,11 @@ docker compose up -d
 ./gradlew bootRun
 
 # 3. Run frontend (SPA on http://localhost:5173, proxies /api to :8080)
-cd frontend && npm install && npm run dev
+cd frontend && npm ci && npm run dev
 ```
+
+> Upgrading from an older checkout? Run `docker compose down --remove-orphans`
+> once to drop the legacy named `ithelpdesk-postgres` container.
 
 On first startup the backend seeds the `IT Service Desk` department, four default
 categories and the admin account `admin@company.ru` / `Admin2024!`
