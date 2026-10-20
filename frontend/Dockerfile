@@ -1,12 +1,9 @@
-# syntax=docker/dockerfile:1
-
 # ---- Build stage: build React SPA ----
 FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY frontend/ ./
 RUN npm run build

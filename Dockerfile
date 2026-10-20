@@ -1,17 +1,13 @@
-# syntax=docker/dockerfile:1
-
 # ---- Build stage: compile the backend with Gradle ----
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 
 COPY gradle/wrapper/ ./gradle/wrapper/
 COPY gradlew settings.gradle build.gradle ./
-RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
-    chmod +x gradlew && ./gradlew --no-daemon dependencies
+RUN chmod +x gradlew && ./gradlew --no-daemon dependencies >/dev/null
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
-    ./gradlew --no-daemon bootJar -x test \
+RUN ./gradlew --no-daemon bootJar -x test \
     && cp "$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -n 1)" /app/app.jar
 
 # ---- Runtime stage: minimal JRE, non-root user ----
