@@ -61,6 +61,19 @@ class MessageServiceImplTest {
     }
 
     @Test
+    void administratorCannotPostToTicket() {
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE),
+                user(2L, UserRole.AGENT));
+        when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(user(3L, UserRole.ADMIN));
+
+        assertThrows(
+                ConflictException.class,
+                () -> service.addMessage(1L, new MessageCreateRequest("Текст"))
+        );
+    }
+
+    @Test
     void employeeCannotPostToForeignTicket() {
         Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE),
                 user(2L, UserRole.AGENT));
