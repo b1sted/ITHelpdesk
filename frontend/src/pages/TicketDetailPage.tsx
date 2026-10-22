@@ -207,7 +207,7 @@ export function TicketDetailPage() {
   const messageHint = isAdmin
     ? 'Администратор может только просматривать заявки и переписку.'
     : isManager
-      ? 'Руководитель отдела может просматривать заявки и принимать решения по запросам.'
+      ? 'Руководитель может просматривать заявки и принимать решения по запросам.'
       : isAgent && !isAssignee && !isClosed
         ? 'Писать сообщения может только специалист, взявший заявку в работу.'
         : undefined;
@@ -300,7 +300,7 @@ export function TicketDetailPage() {
         {isAgent && isAssignee && isActive && (
           <div className="mt-6 border-t border-slate-100 pt-4">
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
-              Запрос руководителю отдела
+              Запрос руководителю
             </h3>
             {pendingRequest ? (
               <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">

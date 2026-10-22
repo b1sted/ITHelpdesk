@@ -13,7 +13,7 @@ import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
 import ru.basted.ithelpdesk.user.dto.UserResponse;
-import ru.basted.ithelpdesk.user.dto.UserTicketLimitRequest;
+import ru.basted.ithelpdesk.user.dto.UserLimitsRequest;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
@@ -114,14 +114,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserResponse updateTicketLimit(Long id, UserTicketLimitRequest request) {
+    public UserResponse updateLimits(Long id, UserLimitsRequest request) {
         User user = findUser(id);
 
         if (user.getRole() != UserRole.AGENT) {
-            throw new ConflictException("Предел заявок применяется только к специалистам поддержки");
+            throw new ConflictException("Лимиты применяются только к специалистам поддержки");
         }
 
         user.setTicketLimit(request.ticketLimit());
+        user.setTimeLimitHours(request.timeLimitHours());
         return toResponse(repository.save(user));
     }
 
@@ -161,7 +162,8 @@ public class UserServiceImpl implements UserService {
                 user.getEmail(),
                 user.getRole(),
                 user.getDepartment().getName(),
-                user.getTicketLimit()
+                user.getTicketLimit(),
+                user.getTimeLimitHours()
         );
     }
 }

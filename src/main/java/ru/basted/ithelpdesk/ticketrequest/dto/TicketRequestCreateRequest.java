@@ -16,7 +16,7 @@ public record TicketRequestCreateRequest(
 
     @NotBlank(message = "Обоснование запроса не может быть пустым")
     @Size(max = 1000, message = "Обоснование не может быть длиннее 1000 символов")
-    @Schema(description = "Обоснование запроса для руководителя отдела",
+    @Schema(description = "Обоснование запроса для руководителя",
             example = "Требуется профильная экспертиза другого специалиста")
     String reason,
 

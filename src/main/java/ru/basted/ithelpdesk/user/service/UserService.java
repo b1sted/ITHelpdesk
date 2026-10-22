@@ -4,7 +4,7 @@ import java.util.List;
 
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
 import ru.basted.ithelpdesk.user.dto.UserResponse;
-import ru.basted.ithelpdesk.user.dto.UserTicketLimitRequest;
+import ru.basted.ithelpdesk.user.dto.UserLimitsRequest;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 
 public interface UserService {
@@ -18,7 +18,7 @@ public interface UserService {
 
     UserResponse updateUser(Long id, UserUpdateRequest updateRequest);
 
-    UserResponse updateTicketLimit(Long id, UserTicketLimitRequest request);
+    UserResponse updateLimits(Long id, UserLimitsRequest request);
 
     void deleteUser(Long id);
 }

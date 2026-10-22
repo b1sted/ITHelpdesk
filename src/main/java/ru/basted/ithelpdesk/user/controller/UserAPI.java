@@ -28,7 +28,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import ru.basted.ithelpdesk.core.exception.ApiError;
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
 import ru.basted.ithelpdesk.user.dto.UserResponse;
-import ru.basted.ithelpdesk.user.dto.UserTicketLimitRequest;
+import ru.basted.ithelpdesk.user.dto.UserLimitsRequest;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 
 @Tag(name = "Пользователи", description = "Управление пользователями и каталогом сотрудников")
@@ -39,7 +39,9 @@ public interface UserAPI {
               "fullName": "Иванов Иван Иванович",
               "email": "ivanov.ii@company.ru",
               "role": "EMPLOYEE",
-              "departmentName": "Департамент тестирования программных продуктов"
+              "departmentName": "Департамент тестирования программных продуктов",
+              "ticketLimit": 10,
+              "timeLimitHours": 24
             }""";
     String USER_LIST_JSON = "[" + USER_JSON + "]";
     String ERROR_404_GENERIC_JSON = "{\"message\":\"Ресурс не найден\"}";
@@ -175,16 +177,16 @@ public interface UserAPI {
     );
 
     @Operation(
-            summary = "Изменить предел заявок специалиста поддержки",
-            description = "Устанавливает максимальное число одновременно взятых в работу заявок. "
-                    + "Доступно руководителю отдела и администратору"
+            summary = "Изменить лимиты специалиста поддержки",
+            description = "Устанавливает максимальное число одновременно взятых в работу заявок и предельное "
+                    + "время выполнения назначенной заявки. Доступно руководителю и администратору"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Предел заявок обновлён",
+            @ApiResponse(responseCode = "200", description = "Лимиты обновлены",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = UserResponse.class),
                             examples = @ExampleObject(value = USER_JSON))),
-            @ApiResponse(responseCode = "400", description = "Некорректный предел заявок",
+            @ApiResponse(responseCode = "400", description = "Некорректные лимиты",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = ERROR_400_JSON))),
@@ -196,20 +198,20 @@ public interface UserAPI {
                                     @ExampleObject(name = "Не найден пользователь", value = ERROR_404_USER_JSON),
                                     @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
                             })),
-            @ApiResponse(responseCode = "409", description = "Предел применим только к специалистам",
+            @ApiResponse(responseCode = "409", description = "Лимиты применимы только к специалистам",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(
-                                    value = "{\"message\":\"Предел заявок применяется только к специалистам поддержки\"}")))
+                                    value = "{\"message\":\"Лимиты применяются только к специалистам поддержки\"}")))
     })
-    @PatchMapping("/{id}/ticket-limit")
+    @PatchMapping("/{id}/limits")
     @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
-    ResponseEntity<UserResponse> updateTicketLimit(
+    ResponseEntity<UserResponse> updateLimits(
             @Parameter(description = "Уникальный идентификатор пользователя", required = true, example = "2")
             @PathVariable("id")
             @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
 
-            @Valid @RequestBody UserTicketLimitRequest request
+            @Valid @RequestBody UserLimitsRequest request
     );
 
     @Operation(

@@ -20,10 +20,9 @@ import { useAuth } from '../context/AuthContext';
 import type { DepartmentResponse, UserResponse } from '../types/user';
 import type { CategoryResponse } from '../types/ticket';
 import type { UserRole } from '../types/auth';
+import { roleLabels, roleOptions } from '../utils/roleLabels';
 
 type Tab = 'users' | 'departments' | 'categories';
-
-const roleOptions: UserRole[] = ['EMPLOYEE', 'AGENT', 'MANAGER', 'ADMIN'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -197,7 +196,7 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
           onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
         >
           {roleOptions.map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>{roleLabels[r]}</option>
           ))}
         </select>
         <select
@@ -248,11 +247,11 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
                       className="rounded border border-slate-300 px-2 py-1 text-sm"
                     >
                       {roleOptions.map((r) => (
-                        <option key={r} value={r}>{r}</option>
+                        <option key={r} value={r}>{roleLabels[r]}</option>
                       ))}
                     </select>
                   ) : (
-                    <span className="text-slate-700">{u.role}</span>
+                    <span className="text-slate-700">{roleLabels[u.role] ?? u.role}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">

@@ -138,7 +138,7 @@ public class TicketRequestServiceImpl implements TicketRequestService {
 
         User manager = currentUser.get();
         if (manager.getRole() != UserRole.MANAGER && manager.getRole() != UserRole.ADMIN) {
-            throw new ConflictException("Решение по запросу может принять только руководитель отдела");
+            throw new ConflictException("Решение по запросу может принять только руководитель");
         }
 
         if (decision.status() == TicketRequestStatus.APPROVED) {

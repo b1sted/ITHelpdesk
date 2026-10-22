@@ -34,6 +34,11 @@ public class DBInitializer implements ApplicationRunner {
             CHECK (status IN ('NEW', 'IN_PROGRESS', 'WAITING_USER', 'ANSWERED', 'RESOLVED', 'CLOSED'))
             """;
 
+    private static final String USER_ROLE_CONSTRAINT = """
+            ALTER TABLE users ADD CONSTRAINT users_role_check
+            CHECK (role IN ('EMPLOYEE', 'AGENT', 'MANAGER', 'ADMIN'))
+            """;
+
     private final DepartmentRepository departmentRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
@@ -67,7 +72,8 @@ public class DBInitializer implements ApplicationRunner {
     @Transactional
     public void run(@NonNull ApplicationArguments args) {
         refreshTicketStatusConstraint();
-        migrateAgentTicketLimits();
+        refreshUserRoleConstraint();
+        migrateAgentLimits();
         Department department = seedDepartment();
         seedCategories();
         seedAdmin(department);
@@ -78,9 +84,18 @@ public class DBInitializer implements ApplicationRunner {
         jdbcTemplate.execute(TICKET_STATUS_CONSTRAINT);
     }
 
-    private void migrateAgentTicketLimits() {
+    private void refreshUserRoleConstraint() {
+        jdbcTemplate.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
+        jdbcTemplate.execute(USER_ROLE_CONSTRAINT);
+    }
+
+    private void migrateAgentLimits() {
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ticket_limit INTEGER");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS time_limit_hours INTEGER");
         jdbcTemplate.execute("UPDATE users SET ticket_limit = 10 WHERE ticket_limit IS NULL");
+        jdbcTemplate.execute(
+                "UPDATE users SET time_limit_hours = 24 WHERE time_limit_hours IS NULL AND role = 'AGENT'"
+        );
     }
 
     private Department seedDepartment() {

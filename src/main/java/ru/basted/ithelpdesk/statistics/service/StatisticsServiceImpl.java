@@ -51,6 +51,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private AgentStatisticsResponse toResponse(User agent, List<Ticket> tickets, LocalDateTime now) {
+        long timeLimitHours = agent.getTimeLimitHours() == null
+                ? overdueHours
+                : agent.getTimeLimitHours();
+
         long active = tickets.stream()
                 .filter(ticket -> AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()))
                 .count();
@@ -62,7 +66,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .count();
         long overdue = tickets.stream()
                 .filter(ticket -> AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()))
-                .filter(ticket -> now.isAfter(ticket.getCreatedAt().plusHours(overdueHours)))
+                .filter(ticket -> now.isAfter(ticket.getCreatedAt().plusHours(timeLimitHours)))
                 .count();
 
         return new AgentStatisticsResponse(
@@ -71,6 +75,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 agent.getEmail(),
                 agent.getDepartment().getName(),
                 agent.getTicketLimit(),
+                agent.getTimeLimitHours(),
                 tickets.size(),
                 active,
                 resolved,

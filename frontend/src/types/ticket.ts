@@ -74,6 +74,7 @@ export interface AgentStatisticsResponse {
   email: string;
   departmentName: string;
   ticketLimit: number | null;
+  timeLimitHours: number | null;
   totalAssigned: number;
   activeTickets: number;
   resolvedTickets: number;

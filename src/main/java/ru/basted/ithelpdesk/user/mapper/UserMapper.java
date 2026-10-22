@@ -10,5 +10,6 @@ import ru.basted.ithelpdesk.user.entity.User;
 public interface UserMapper {
     @Mapping(target = "department", ignore = true)
     @Mapping(target = "ticketLimit", ignore = true)
+    @Mapping(target = "timeLimitHours", ignore = true)
     User toEntity(UserCreateRequest dto);
 }

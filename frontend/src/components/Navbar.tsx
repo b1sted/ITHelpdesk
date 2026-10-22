@@ -1,13 +1,7 @@
 import { BarChart3, LogOut, Headset, Settings, Ticket } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const roleLabels: Record<string, string> = {
-  EMPLOYEE: 'Сотрудник',
-  AGENT: 'Специалист',
-  MANAGER: 'Руководитель отдела',
-  ADMIN: 'Администратор',
-};
+import { roleLabels } from '../utils/roleLabels';
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return `flex items-center gap-1 rounded-md px-2 py-1 text-sm transition ${

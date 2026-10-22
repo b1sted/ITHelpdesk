@@ -29,6 +29,7 @@ public interface StatisticsAPI {
                 "email": "petrov.pp@company.ru",
                 "departmentName": "IT Service Desk",
                 "ticketLimit": 10,
+                "timeLimitHours": 24,
                 "totalAssigned": 42,
                 "activeTickets": 5,
                 "resolvedTickets": 20,
@@ -40,7 +41,7 @@ public interface StatisticsAPI {
     @Operation(
             summary = "Получить статистику по специалистам поддержки",
             description = "Возвращает количество назначенных, активных, решённых, закрытых и просроченных "
-                    + "заявок по каждому специалисту. Доступно руководителю отдела и администратору"
+                    + "заявок по каждому специалисту. Доступно руководителю и администратору"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Статистика по специалистам",

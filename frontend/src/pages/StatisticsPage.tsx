@@ -3,7 +3,7 @@ import { BarChart3, Ticket, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../api/errorMessage';
 import { getAgentStatistics } from '../api/statisticsApi';
-import { updateAgentTicketLimit } from '../api/adminApi';
+import { updateAgentLimits } from '../api/adminApi';
 import {
   decideTicketRequest,
   getTicketRequestsByStatus,
@@ -87,7 +87,8 @@ export function StatisticsPage() {
                   <tr>
                     <th className="px-3 py-2">Специалист</th>
                     <th className="px-3 py-2">Департамент</th>
-                    <th className="px-3 py-2">Лимит</th>
+                    <th className="px-3 py-2">Лимит заявок</th>
+                    <th className="px-3 py-2">Лимит времени, ч</th>
                     <th className="px-3 py-2">Активные</th>
                     <th className="px-3 py-2">Решённые</th>
                     <th className="px-3 py-2">Закрытые</th>
@@ -104,7 +105,10 @@ export function StatisticsPage() {
                       </td>
                       <td className="px-3 py-2 text-slate-500">{agent.departmentName}</td>
                       <td className="px-3 py-2">
-                        <LimitEditor agent={agent} onSaved={load} onError={setError} />
+                        <LimitEditor field="ticketLimit" agent={agent} onSaved={load} onError={setError} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <LimitEditor field="timeLimitHours" agent={agent} onSaved={load} onError={setError} />
                       </td>
                       <td className="px-3 py-2 text-slate-700">{agent.activeTickets}</td>
                       <td className="px-3 py-2 text-slate-700">{agent.resolvedTickets}</td>
@@ -126,7 +130,7 @@ export function StatisticsPage() {
                   ))}
                   {statistics.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-3 py-6 text-center text-sm text-slate-400">
+                      <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-400">
                         Специалистов поддержки пока нет.
                       </td>
                     </tr>
@@ -153,34 +157,44 @@ export function StatisticsPage() {
 }
 
 function LimitEditor({
+  field,
   agent,
   onSaved,
   onError,
 }: {
+  field: 'ticketLimit' | 'timeLimitHours';
   agent: AgentStatisticsResponse;
   onSaved: () => void;
   onError: (message: string) => void;
 }) {
-  const [value, setValue] = useState(String(agent.ticketLimit ?? 10));
+  const fallback = field === 'ticketLimit' ? 10 : 24;
+  const [value, setValue] = useState(String(agent[field] ?? fallback));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setValue(String(agent.ticketLimit ?? 10));
-  }, [agent.ticketLimit]);
+    setValue(String(agent[field] ?? fallback));
+  }, [agent, field, fallback]);
 
   const save = async () => {
     const limit = Number(value);
     if (!Number.isInteger(limit) || limit < 1) {
-      onError('Предел заявок должен быть целым числом не менее 1');
+      onError('Значение лимита должно быть целым числом не менее 1');
+      return;
+    }
+    if (field === 'timeLimitHours' && limit > 720) {
+      onError('Лимит времени не может превышать 720 часов');
       return;
     }
     setSaving(true);
     try {
-      await updateAgentTicketLimit(agent.agentId, limit);
+      await updateAgentLimits(agent.agentId, {
+        ticketLimit: field === 'ticketLimit' ? limit : agent.ticketLimit ?? 10,
+        timeLimitHours: field === 'timeLimitHours' ? limit : agent.timeLimitHours ?? 24,
+      });
       onError('');
       onSaved();
     } catch (err: unknown) {
-      onError(getErrorMessage(err, 'Не удалось изменить предел заявок'));
+      onError(getErrorMessage(err, 'Не удалось изменить лимиты специалиста'));
     } finally {
       setSaving(false);
     }
@@ -191,6 +205,7 @@ function LimitEditor({
       <input
         type="number"
         min={1}
+        max={field === 'timeLimitHours' ? 720 : 1000}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         className="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-emerald-500 focus:outline-none"

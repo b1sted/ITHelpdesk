@@ -2,6 +2,7 @@ import { client } from './client';
 import type {
   DepartmentResponse,
   UserCreateRequest,
+  UserLimitsRequest,
   UserResponse,
   UserUpdateRequest,
 } from '../types/user';
@@ -16,11 +17,11 @@ export async function getAgents(): Promise<UserResponse[]> {
   return response.data;
 }
 
-export async function updateAgentTicketLimit(
+export async function updateAgentLimits(
   id: number,
-  ticketLimit: number,
+  data: UserLimitsRequest,
 ): Promise<UserResponse> {
-  const response = await client.patch<UserResponse>(`/users/${id}/ticket-limit`, { ticketLimit });
+  const response = await client.patch<UserResponse>(`/users/${id}/limits`, data);
   return response.data;
 }
 
