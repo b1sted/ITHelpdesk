@@ -3,12 +3,14 @@ import { Navbar } from './components/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { EmployeeRoute } from './components/EmployeeRoute';
+import { ManagerRoute } from './components/ManagerRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminPage } from './pages/AdminPage';
 import { CreateTicketPage } from './pages/CreateTicketPage';
 import { LoginPage } from './pages/LoginPage';
 import { TicketDetailPage } from './pages/TicketDetailPage';
 import { TicketListPage } from './pages/TicketListPage';
+import { StatisticsPage } from './pages/StatisticsPage';
 
 function AppRoutes() {
   const { token } = useAuth();
@@ -41,6 +43,14 @@ function AppRoutes() {
           <ProtectedRoute>
             <TicketDetailPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/statistics"
+        element={
+          <ManagerRoute>
+            <StatisticsPage />
+          </ManagerRoute>
         }
       />
       <Route

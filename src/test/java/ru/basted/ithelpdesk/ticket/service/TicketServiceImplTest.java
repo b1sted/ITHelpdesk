@@ -31,6 +31,7 @@ import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
+import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
 
@@ -52,7 +53,8 @@ class TicketServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new TicketServiceImpl(
-                repository, mapper, categoryRepository, messageService, currentUser
+                repository, mapper, categoryRepository, messageService, currentUser,
+                new AgentCapacityPolicy(repository), 24
         );
     }
 
@@ -115,6 +117,34 @@ class TicketServiceImplTest {
 
         assertEquals(TicketStatus.IN_PROGRESS, response.status());
         assertEquals(2L, response.assignee().id());
+    }
+
+    @Test
+    void agentCannotAssignTicketBeyondLimit() {
+        User agent = user(2L, UserRole.AGENT);
+        agent.setTicketLimit(1);
+        Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(repository.countByAssigneeIdAndStatusIn(2L, AgentCapacityPolicy.ACTIVE_STATUSES))
+                .thenReturn(1L);
+        when(currentUser.get()).thenReturn(agent);
+
+        assertThrows(ConflictException.class, () -> service.assignTicket(1L));
+        verify(repository, never()).save(any(Ticket.class));
+    }
+
+    @Test
+    void assignedOldTicketIsMarkedOverdue() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(repository.save(ticket)).thenReturn(ticket);
+        when(currentUser.get()).thenReturn(agent);
+
+        var response = service.assignTicket(1L);
+
+        assertEquals(true, response.overdue());
     }
 
     @Test

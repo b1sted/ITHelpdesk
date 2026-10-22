@@ -23,7 +23,7 @@ import type { UserRole } from '../types/auth';
 
 type Tab = 'users' | 'departments' | 'categories';
 
-const roleOptions: UserRole[] = ['EMPLOYEE', 'AGENT', 'ADMIN'];
+const roleOptions: UserRole[] = ['EMPLOYEE', 'AGENT', 'MANAGER', 'ADMIN'];
 
 export function AdminPage() {
   const { user } = useAuth();

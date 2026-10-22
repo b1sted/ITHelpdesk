@@ -29,6 +29,9 @@ public class User extends BaseEntity {
     @Column(name = "role", nullable = false, length = 20)
     private UserRole role;
 
+    @Column(name = "ticket_limit")
+    private Integer ticketLimit = 10;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "department_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_users_department_id"))
@@ -64,6 +67,14 @@ public class User extends BaseEntity {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public Integer getTicketLimit() {
+        return ticketLimit;
+    }
+
+    public void setTicketLimit(Integer ticketLimit) {
+        this.ticketLimit = ticketLimit;
     }
 
     public Department getDepartment() {

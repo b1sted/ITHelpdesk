@@ -11,6 +11,19 @@ export async function getUsers(): Promise<UserResponse[]> {
   return response.data;
 }
 
+export async function getAgents(): Promise<UserResponse[]> {
+  const response = await client.get<UserResponse[]>('/users/agents');
+  return response.data;
+}
+
+export async function updateAgentTicketLimit(
+  id: number,
+  ticketLimit: number,
+): Promise<UserResponse> {
+  const response = await client.patch<UserResponse>(`/users/${id}/ticket-limit`, { ticketLimit });
+  return response.data;
+}
+
 export async function createUser(data: UserCreateRequest): Promise<UserResponse> {
   const response = await client.post<UserResponse>('/users', data);
   return response.data;

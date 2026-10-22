@@ -19,5 +19,8 @@ public record UserResponse(
     UserRole role,
 
     @Schema(description = "Название департамента пользователя", example = "Департамент разработки")
-    String departmentName
+    String departmentName,
+
+    @Schema(description = "Предел одновременно взятых в работу заявок для специалиста", example = "10")
+    Integer ticketLimit
 ) {}

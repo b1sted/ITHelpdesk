@@ -13,8 +13,10 @@ import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
 import ru.basted.ithelpdesk.user.dto.UserResponse;
+import ru.basted.ithelpdesk.user.dto.UserTicketLimitRequest;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 import ru.basted.ithelpdesk.user.entity.User;
+import ru.basted.ithelpdesk.user.entity.UserRole;
 import ru.basted.ithelpdesk.user.mapper.UserMapper;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
 
@@ -48,6 +50,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<UserResponse> getAgents() {
+        return repository.findAllByRoleOrderByFullNameAsc(UserRole.AGENT)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         return toResponse(findUser(id));
     }
@@ -66,6 +77,7 @@ public class UserServiceImpl implements UserService {
         User user = mapper.toEntity(createRequest);
         user.setPassword(passwordEncoder.encode(createRequest.password()));
         user.setDepartment(department);
+        user.setTicketLimit(10);
 
         return toResponse(repository.save(user));
     }
@@ -97,6 +109,19 @@ public class UserServiceImpl implements UserService {
             user.setDepartment(findDepartment(updateRequest.departmentId()));
         }
 
+        return toResponse(repository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateTicketLimit(Long id, UserTicketLimitRequest request) {
+        User user = findUser(id);
+
+        if (user.getRole() != UserRole.AGENT) {
+            throw new ConflictException("Предел заявок применяется только к специалистам поддержки");
+        }
+
+        user.setTicketLimit(request.ticketLimit());
         return toResponse(repository.save(user));
     }
 
@@ -135,7 +160,8 @@ public class UserServiceImpl implements UserService {
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
-                user.getDepartment().getName()
+                user.getDepartment().getName(),
+                user.getTicketLimit()
         );
     }
 }

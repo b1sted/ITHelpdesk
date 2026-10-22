@@ -13,6 +13,7 @@ export interface UserResponse {
   email: string;
   role: UserRole;
   departmentName: string;
+  ticketLimit: number | null;
 }
 
 export interface UserCreateRequest {
