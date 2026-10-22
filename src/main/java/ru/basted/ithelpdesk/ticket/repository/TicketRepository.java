@@ -32,5 +32,13 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
             "creator.department", "assignee.department"})
     List<Ticket> findAllByCreatorIdAndStatusOrderByCreatedAtDesc(Long creatorId, TicketStatus status);
 
+    @EntityGraph(attributePaths = {"creator", "assignee", "category",
+            "creator.department", "assignee.department"})
+    List<Ticket> findAllByAssigneeIdOrStatusOrderByCreatedAtDesc(Long assigneeId, TicketStatus status);
+
+    @EntityGraph(attributePaths = {"creator", "assignee", "category",
+            "creator.department", "assignee.department"})
+    List<Ticket> findAllByAssigneeIdAndStatusOrderByCreatedAtDesc(Long assigneeId, TicketStatus status);
+
     long countByAssigneeIdAndStatusIn(Long assigneeId, Collection<TicketStatus> statuses);
 }

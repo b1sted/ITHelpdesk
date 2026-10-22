@@ -228,7 +228,7 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
 | `POST` | `/tickets` | Register a new ticket (BP-1) | `EMPLOYEE` | `201 Created`, `400 Bad Request` |
-| `GET` | `/tickets` | List tickets (with filters by status/role). `EMPLOYEE` receives only own tickets; `AGENT`/`MANAGER`/`ADMIN` receive all | Authenticated | `200 OK` |
+| `GET` | `/tickets` | List tickets (with filters by status/role). `EMPLOYEE` receives only own tickets; `AGENT` receives tickets assigned to them plus unassigned `NEW` tickets; `MANAGER`/`ADMIN` receive all | Authenticated | `200 OK` |
 | `GET` | `/tickets/{id}` | Get full ticket details with messages | Authenticated | `200 OK`, `404 Not Found` |
 | `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` (status or personal limit) |
 | `PATCH`| `/tickets/{id}/status` | Transition status (BP-4, 5, 6, 7) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request` |
@@ -325,7 +325,7 @@ frontend/
 
 ### 8.2. UI Screens & Adaptive Action Panel Rules
 1. **Screen 1 (Login):** Email and password input, stores authenticated token & user profile (`role`, `fullName`) in client state.
-2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT`, `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT` and `MANAGER` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
+2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` sees assigned tickets and the unassigned `NEW` queue with the full status filter set; `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT` and `MANAGER` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
 4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c View):**
     * Left section: Ticket metadata, full description, and chronological `MessageThread`.

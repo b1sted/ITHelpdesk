@@ -162,6 +162,50 @@ class TicketServiceImplTest {
         verify(repository, never()).findAllByOrderByCreatedAtDesc();
     }
 
+    @Test
+    void agentSeesOwnAndNewTickets() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket own = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        Ticket unassigned = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        when(currentUser.get()).thenReturn(agent);
+        when(repository.findAllByAssigneeIdOrStatusOrderByCreatedAtDesc(2L, TicketStatus.NEW))
+                .thenReturn(List.of(own, unassigned));
+
+        var tickets = service.getAllTickets(null);
+
+        assertEquals(2, tickets.size());
+        verify(repository).findAllByAssigneeIdOrStatusOrderByCreatedAtDesc(2L, TicketStatus.NEW);
+        verify(repository, never()).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    void agentSeesOnlyNewTicketsWhenFilteringByNew() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket unassigned = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        when(currentUser.get()).thenReturn(agent);
+        when(repository.findAllByStatusOrderByCreatedAtDesc(TicketStatus.NEW))
+                .thenReturn(List.of(unassigned));
+
+        var tickets = service.getAllTickets(TicketStatus.NEW);
+
+        assertEquals(1, tickets.size());
+        verify(repository).findAllByStatusOrderByCreatedAtDesc(TicketStatus.NEW);
+        verify(repository, never()).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    void managerSeesAllTickets() {
+        User manager = user(3L, UserRole.MANAGER);
+        Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        when(currentUser.get()).thenReturn(manager);
+        when(repository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+
+        var tickets = service.getAllTickets(null);
+
+        assertEquals(1, tickets.size());
+        verify(repository).findAllByOrderByCreatedAtDesc();
+    }
+
     private Ticket ticket(TicketStatus status, User creator, User assignee) {
         Ticket ticket = new Ticket();
         setId(ticket, 1L);

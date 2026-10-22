@@ -79,9 +79,11 @@ public class TicketServiceImpl implements TicketService {
     @Transactional(readOnly = true)
     public List<TicketResponse> getAllTickets(TicketStatus status) {
         User viewer = currentUser.get();
-        List<Ticket> tickets = viewer.getRole() == UserRole.EMPLOYEE
-                ? findOwnTickets(viewer, status)
-                : findAllTickets(status);
+        List<Ticket> tickets = switch (viewer.getRole()) {
+            case EMPLOYEE -> findOwnTickets(viewer, status);
+            case AGENT -> findAgentTickets(viewer, status);
+            default -> findAllTickets(status);
+        };
 
         return tickets.stream()
                 .map(ticket -> toResponse(ticket, false))
@@ -206,6 +208,18 @@ public class TicketServiceImpl implements TicketService {
         return status == null
                 ? repository.findAllByCreatorIdOrderByCreatedAtDesc(viewer.getId())
                 : repository.findAllByCreatorIdAndStatusOrderByCreatedAtDesc(viewer.getId(), status);
+    }
+
+    private List<Ticket> findAgentTickets(User viewer, TicketStatus status) {
+        if (status == null) {
+            return repository.findAllByAssigneeIdOrStatusOrderByCreatedAtDesc(
+                    viewer.getId(), TicketStatus.NEW
+            );
+        }
+        if (status == TicketStatus.NEW) {
+            return repository.findAllByStatusOrderByCreatedAtDesc(TicketStatus.NEW);
+        }
+        return repository.findAllByAssigneeIdAndStatusOrderByCreatedAtDesc(viewer.getId(), status);
     }
 
     private List<Ticket> findAllTickets(TicketStatus status) {
