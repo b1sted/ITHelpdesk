@@ -14,6 +14,7 @@ export interface UserResponse {
   role: UserRole;
   departmentName: string;
   ticketLimit: number | null;
+  timeLimitHours: number | null;
 }
 
 export interface UserCreateRequest {
@@ -22,6 +23,11 @@ export interface UserCreateRequest {
   password: string;
   role: UserRole;
   departmentId: number;
+}
+
+export interface UserLimitsRequest {
+  ticketLimit: number;
+  timeLimitHours: number;
 }
 
 export interface UserUpdateRequest {
