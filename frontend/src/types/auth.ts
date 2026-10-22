@@ -1,4 +1,4 @@
-export type UserRole = 'EMPLOYEE' | 'AGENT' | 'ADMIN';
+export type UserRole = 'EMPLOYEE' | 'AGENT' | 'MANAGER' | 'ADMIN';
 
 export interface AuthResponse {
   id: number;

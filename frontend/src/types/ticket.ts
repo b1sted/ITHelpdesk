@@ -19,6 +19,8 @@ export interface TicketResponse {
   creator: UserSummary;
   assignee: UserSummary | null;
   categoryName: string;
+  overdue: boolean;
+  dueAt: string;
   messages: MessageResponse[];
 }
 
@@ -36,4 +38,45 @@ export interface TicketStatusChangeRequest {
 export interface CategoryResponse {
   id: number;
   name: string;
+}
+
+export type TicketRequestType = 'RELEASE' | 'REASSIGN';
+export type TicketRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface TicketRequestResponse {
+  id: number;
+  type: TicketRequestType;
+  status: TicketRequestStatus;
+  reason: string;
+  decisionComment: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  ticketId: number;
+  requester: UserSummary;
+  targetAssignee: UserSummary | null;
+  decidedBy: UserSummary | null;
+}
+
+export interface TicketRequestCreateRequest {
+  type: TicketRequestType;
+  reason: string;
+  targetAssigneeId?: number;
+}
+
+export interface TicketRequestDecisionRequest {
+  status: Exclude<TicketRequestStatus, 'PENDING'>;
+  comment?: string;
+}
+
+export interface AgentStatisticsResponse {
+  agentId: number;
+  fullName: string;
+  email: string;
+  departmentName: string;
+  ticketLimit: number | null;
+  totalAssigned: number;
+  activeTickets: number;
+  resolvedTickets: number;
+  closedTickets: number;
+  overdueTickets: number;
 }

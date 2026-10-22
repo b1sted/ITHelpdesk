@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, TriangleAlert } from 'lucide-react';
 import { getTickets } from '../api/ticketsApi';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
@@ -45,7 +45,9 @@ function formatDate(value: string): string {
 export function TicketListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const canSeeAllTickets = user?.role === 'AGENT' || user?.role === 'ADMIN';
+  const canSeeAllTickets =
+    user?.role === 'AGENT' || user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const canSeeOverdue = user?.role === 'AGENT' || user?.role === 'MANAGER';
   const [tickets, setTickets] = useState<TicketResponse[]>([]);
   const [filter, setFilter] = useState<Filter>(canSeeAllTickets ? 'ALL' : 'ACTIVE');
   const [loading, setLoading] = useState(true);
@@ -133,11 +135,17 @@ export function TicketListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((ticket) => (
+              {filtered.map((ticket) => {
+                const highlightOverdue = canSeeOverdue && ticket.overdue;
+                return (
                 <tr
                   key={ticket.id}
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
-                  className="cursor-pointer transition hover:bg-slate-50"
+                  className={`cursor-pointer transition ${
+                    highlightOverdue
+                      ? 'bg-red-50 hover:bg-red-100'
+                      : 'hover:bg-slate-50'
+                  }`}
                 >
                   <td className="px-4 py-3 font-medium text-emerald-700">#{ticket.id}</td>
                   <td className="px-4 py-3 text-slate-800">{ticket.title}</td>
@@ -146,11 +154,20 @@ export function TicketListPage() {
                     {ticket.assignee ? ticket.assignee.fullName : 'Не назначен'}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={ticket.status} />
+                    <div className="flex flex-wrap items-center gap-1">
+                      <StatusBadge status={ticket.status} />
+                      {highlightOverdue && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                          <TriangleAlert className="h-3 w-3" />
+                          Просрочена
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-slate-500">{formatDate(ticket.createdAt)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

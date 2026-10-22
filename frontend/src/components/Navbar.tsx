@@ -1,10 +1,11 @@
-import { LogOut, Headset, Settings, Ticket } from 'lucide-react';
+import { BarChart3, LogOut, Headset, Settings, Ticket } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const roleLabels: Record<string, string> = {
   EMPLOYEE: 'Сотрудник',
   AGENT: 'Специалист',
+  MANAGER: 'Руководитель отдела',
   ADMIN: 'Администратор',
 };
 
@@ -36,6 +37,12 @@ export function Navbar() {
               <Ticket className="h-4 w-4" />
               Заявки
             </NavLink>
+            {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
+              <NavLink to="/statistics" className={navLinkClass} title="Статистика и запросы">
+                <BarChart3 className="h-4 w-4" />
+                Статистика
+              </NavLink>
+            )}
             {user?.role === 'ADMIN' && (
               <NavLink to="/admin" className={navLinkClass} title="Панель администратора">
                 <Settings className="h-4 w-4" />
