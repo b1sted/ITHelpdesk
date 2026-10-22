@@ -19,6 +19,9 @@ public record AgentStatisticsResponse(
     @Schema(description = "Предел одновременно взятых в работу заявок", example = "10")
     Integer ticketLimit,
 
+    @Schema(description = "Предельное время выполнения назначенной заявки в часах", example = "24")
+    Integer timeLimitHours,
+
     @Schema(description = "Всего назначенных заявок", example = "42")
     long totalAssigned,
 

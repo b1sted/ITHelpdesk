@@ -22,5 +22,8 @@ public record UserResponse(
     String departmentName,
 
     @Schema(description = "Предел одновременно взятых в работу заявок для специалиста", example = "10")
-    Integer ticketLimit
+    Integer ticketLimit,
+
+    @Schema(description = "Предельное время выполнения назначенной заявки в часах", example = "24")
+    Integer timeLimitHours
 ) {}

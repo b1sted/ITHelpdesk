@@ -32,6 +32,9 @@ public class User extends BaseEntity {
     @Column(name = "ticket_limit")
     private Integer ticketLimit = 10;
 
+    @Column(name = "time_limit_hours")
+    private Integer timeLimitHours = 24;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "department_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_users_department_id"))
@@ -75,6 +78,14 @@ public class User extends BaseEntity {
 
     public void setTicketLimit(Integer ticketLimit) {
         this.ticketLimit = ticketLimit;
+    }
+
+    public Integer getTimeLimitHours() {
+        return timeLimitHours;
+    }
+
+    public void setTimeLimitHours(Integer timeLimitHours) {
+        this.timeLimitHours = timeLimitHours;
     }
 
     public Department getDepartment() {

@@ -29,6 +29,7 @@ public interface StatisticsAPI {
                 "email": "petrov.pp@company.ru",
                 "departmentName": "IT Service Desk",
                 "ticketLimit": 10,
+                "timeLimitHours": 24,
                 "totalAssigned": 42,
                 "activeTickets": 5,
                 "resolvedTickets": 20,

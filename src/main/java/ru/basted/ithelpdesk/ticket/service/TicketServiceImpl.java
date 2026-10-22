@@ -236,7 +236,12 @@ public class TicketServiceImpl implements TicketService {
                 ? messageService.getMessagesByTicket(ticket.getId())
                 : List.of();
 
-        LocalDateTime dueAt = ticket.getCreatedAt().plusHours(overdueHours);
+        long timeLimitHours = ticket.getAssignee() == null
+                || ticket.getAssignee().getTimeLimitHours() == null
+                ? overdueHours
+                : ticket.getAssignee().getTimeLimitHours();
+
+        LocalDateTime dueAt = ticket.getCreatedAt().plusHours(timeLimitHours);
         boolean overdue = !COMPLETED_STATUSES.contains(ticket.getStatus())
                 && LocalDateTime.now().isAfter(dueAt);
 

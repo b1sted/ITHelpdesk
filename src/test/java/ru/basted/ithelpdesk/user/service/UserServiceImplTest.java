@@ -19,6 +19,7 @@ import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.department.repository.DepartmentRepository;
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
+import ru.basted.ithelpdesk.user.dto.UserLimitsRequest;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
@@ -56,6 +57,30 @@ class UserServiceImplTest {
         assertEquals(UserRole.AGENT, response.role());
         assertEquals("Иванов Иван", response.fullName());
         assertEquals("ivanov@company.ru", response.email());
+    }
+
+    @Test
+    void updateLimitsChangesTicketAndTimeLimitsOfAgent() {
+        User user = user();
+        user.setRole(UserRole.AGENT);
+        when(repository.findById(1L)).thenReturn(Optional.of(user));
+        when(repository.save(user)).thenReturn(user);
+
+        var response = service.updateLimits(1L, new UserLimitsRequest(7, 12));
+
+        assertEquals(7, response.ticketLimit());
+        assertEquals(12, response.timeLimitHours());
+    }
+
+    @Test
+    void updateLimitsRejectsNonAgent() {
+        User user = user();
+        when(repository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThrows(
+                ConflictException.class,
+                () -> service.updateLimits(1L, new UserLimitsRequest(7, 12))
+        );
     }
 
     @Test

@@ -41,6 +41,7 @@ class StatisticsServiceImplTest {
     void aggregatesAgentTicketsAndOverdueCount() {
         User agent = user(2L, UserRole.AGENT);
         agent.setTicketLimit(5);
+        agent.setTimeLimitHours(12);
 
         when(userRepository.findAllByRoleOrderByFullNameAsc(UserRole.AGENT))
                 .thenReturn(List.of(agent));
@@ -54,6 +55,7 @@ class StatisticsServiceImplTest {
 
         assertEquals(1, statistics.size());
         assertEquals(5, statistics.getFirst().ticketLimit());
+        assertEquals(12, statistics.getFirst().timeLimitHours());
         assertEquals(3, statistics.getFirst().totalAssigned());
         assertEquals(1, statistics.getFirst().activeTickets());
         assertEquals(1, statistics.getFirst().resolvedTickets());
