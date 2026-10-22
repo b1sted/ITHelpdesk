@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import ru.basted.ithelpdesk.user.dto.UserCreateRequest;
 import ru.basted.ithelpdesk.user.dto.UserResponse;
+import ru.basted.ithelpdesk.user.dto.UserTicketLimitRequest;
 import ru.basted.ithelpdesk.user.dto.UserUpdateRequest;
 import ru.basted.ithelpdesk.user.service.UserService;
 
@@ -27,6 +28,11 @@ public class UserController implements UserAPI {
     }
 
     @Override
+    public ResponseEntity<List<UserResponse>> getAgents() {
+        return ResponseEntity.ok(service.getAgents());
+    }
+
+    @Override
     public ResponseEntity<UserResponse> getUserById(Long id) {
         return ResponseEntity.ok(service.getUserById(id));
     }
@@ -42,6 +48,11 @@ public class UserController implements UserAPI {
     @Override
     public ResponseEntity<UserResponse> updateUser(Long id, UserUpdateRequest updateRequest) {
         return ResponseEntity.ok(service.updateUser(id, updateRequest));
+    }
+
+    @Override
+    public ResponseEntity<UserResponse> updateTicketLimit(Long id, UserTicketLimitRequest request) {
+        return ResponseEntity.ok(service.updateTicketLimit(id, request));
     }
 
     @Override

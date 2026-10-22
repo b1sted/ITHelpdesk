@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -30,25 +31,33 @@ import ru.basted.ithelpdesk.user.entity.UserRole;
 public class TicketServiceImpl implements TicketService {
     private static final Set<TicketStatus> RESOLVABLE_STATUSES =
             Set.of(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_USER, TicketStatus.ANSWERED);
+    private static final Set<TicketStatus> COMPLETED_STATUSES =
+            Set.of(TicketStatus.RESOLVED, TicketStatus.CLOSED);
 
     private final TicketRepository repository;
     private final TicketMapper mapper;
     private final CategoryRepository categoryRepository;
     private final MessageService messageService;
     private final CurrentUser currentUser;
+    private final AgentCapacityPolicy capacityPolicy;
+    private final long overdueHours;
 
     public TicketServiceImpl(
             TicketRepository repository,
             TicketMapper mapper,
             CategoryRepository categoryRepository,
             MessageService messageService,
-            CurrentUser currentUser
+            CurrentUser currentUser,
+            AgentCapacityPolicy capacityPolicy,
+            @Value("${app.ticket.overdue-hours:24}") long overdueHours
     ) {
         this.repository = repository;
         this.mapper = mapper;
         this.categoryRepository = categoryRepository;
         this.messageService = messageService;
         this.currentUser = currentUser;
+        this.capacityPolicy = capacityPolicy;
+        this.overdueHours = overdueHours;
     }
 
     @Override
@@ -96,7 +105,10 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        ticket.setAssignee(currentUser.get());
+        User agent = currentUser.get();
+        capacityPolicy.checkCanAssign(agent);
+
+        ticket.setAssignee(agent);
         ticket.setStatus(TicketStatus.IN_PROGRESS);
 
         return toResponse(repository.save(ticket), false);
@@ -224,6 +236,10 @@ public class TicketServiceImpl implements TicketService {
                 ? messageService.getMessagesByTicket(ticket.getId())
                 : List.of();
 
+        LocalDateTime dueAt = ticket.getCreatedAt().plusHours(overdueHours);
+        boolean overdue = !COMPLETED_STATUSES.contains(ticket.getStatus())
+                && LocalDateTime.now().isAfter(dueAt);
+
         return new TicketResponse(
                 ticket.getId(),
                 ticket.getTitle(),
@@ -233,6 +249,8 @@ public class TicketServiceImpl implements TicketService {
                 creator,
                 assignee,
                 ticket.getCategory().getName(),
+                overdue,
+                dueAt,
                 messages
         );
     }

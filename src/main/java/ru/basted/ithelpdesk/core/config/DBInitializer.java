@@ -67,6 +67,7 @@ public class DBInitializer implements ApplicationRunner {
     @Transactional
     public void run(@NonNull ApplicationArguments args) {
         refreshTicketStatusConstraint();
+        migrateAgentTicketLimits();
         Department department = seedDepartment();
         seedCategories();
         seedAdmin(department);
@@ -75,6 +76,11 @@ public class DBInitializer implements ApplicationRunner {
     private void refreshTicketStatusConstraint() {
         jdbcTemplate.execute("ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check");
         jdbcTemplate.execute(TICKET_STATUS_CONSTRAINT);
+    }
+
+    private void migrateAgentTicketLimits() {
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ticket_limit INTEGER");
+        jdbcTemplate.execute("UPDATE users SET ticket_limit = 10 WHERE ticket_limit IS NULL");
     }
 
     private Department seedDepartment() {

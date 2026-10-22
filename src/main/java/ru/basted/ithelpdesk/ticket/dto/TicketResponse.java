@@ -35,6 +35,12 @@ public record TicketResponse(
     @Schema(description = "Название категории инцидента", example = "Оборудование")
     String categoryName,
 
+    @Schema(description = "Признак превышения допустимого времени решения заявки", example = "false")
+    boolean overdue,
+
+    @Schema(description = "Крайний срок решения заявки", example = "2026-10-19T10:15:30")
+    LocalDateTime dueAt,
+
     @Schema(description = "Сообщения по заявке, перечисленные в хронологическом порядке")
     List<MessageResponse> messages
 ) {}

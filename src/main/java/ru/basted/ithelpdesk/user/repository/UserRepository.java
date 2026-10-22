@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import ru.basted.ithelpdesk.user.entity.User;
+import ru.basted.ithelpdesk.user.entity.UserRole;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
@@ -17,6 +18,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @EntityGraph(attributePaths = "department")
     List<User> findAllByOrderByIdAsc();
+
+    @EntityGraph(attributePaths = "department")
+    List<User> findAllByRoleOrderByFullNameAsc(UserRole role);
 
     @Override
     @EntityGraph(attributePaths = "department")
