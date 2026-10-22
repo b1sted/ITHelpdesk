@@ -45,7 +45,7 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 
 ### SLA / Overdue Threshold (`app.ticket.overdue-hours`, env `TICKET_OVERDUE_HOURS`, default `24`):
 
-A ticket is considered **overdue** when `now > created_at + overdue-hours` and its status is not `RESOLVED` or `CLOSED`. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT` and `ROLE_MANAGER` only.
+A ticket is considered **overdue** when `now > created_at + time-limit-hours` and its status is not `RESOLVED` or `CLOSED`. For assigned tickets the time limit is taken from the assignee's `users.time_limit_hours`; unassigned tickets fall back to the global `app.ticket.overdue-hours` value. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT` and `ROLE_MANAGER` only.
 
 ### Valid Statuses (`TicketStatus` Enum):
 * `NEW` — Created, waiting in the unassigned queue.
@@ -101,6 +101,7 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
     * `password`: `VARCHAR(255)` (Not Null, BCrypt hashed)
     * `role`: `VARCHAR(20)` (Not Null, Enum: `EMPLOYEE`, `AGENT`, `MANAGER`, `ADMIN`)
     * `ticket_limit`: `INTEGER` (Default 10, meaningful for `AGENT`; maximum active tickets)
+    * `time_limit_hours`: `INTEGER` (Default 24, meaningful for `AGENT`; maximum hours to resolve an assigned ticket)
     * `department_id`: `BIGINT` (Foreign Key -> `departments.id`, Not Null)
 
 3. **`categories`**
@@ -188,9 +189,9 @@ ru.basted.ithelpdesk.<feature>/
 * **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists and derives granted authorities from the current database role (so role changes apply immediately), plus validates the token issuer.
 * **Login rate limit:** Failed login attempts per email are limited (`app.rate-limit.max-attempts`, default 5 per 5 minutes) and respond `429 Too Many Requests`.
 * **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
-* **Manager authority:** `ROLE_MANAGER` and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents and change an agent's `ticket_limit`. Managers cannot claim tickets, change ticket statuses, or post messages.
+* **Manager authority:** `ROLE_MANAGER` (displayed as **Руководитель**) and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents and change an agent's `ticket_limit` and `time_limit_hours`. Managers cannot claim tickets, change ticket statuses, or post messages.
 * **Agent capacity:** `AgentCapacityPolicy` enforces the per-agent active-ticket limit on claim and on approved reassignment. Counted statuses are `IN_PROGRESS`, `WAITING_USER`, `ANSWERED`.
-* **SLA:** `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) controls the overdue threshold; the value is never persisted and may change without a migration.
+* **SLA:** each agent has a persisted `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets and for agents without an explicit limit.
 
 ### 6.5. OpenAPI (Swagger) Documentation, Validation & Localization Rules
 The system communicates with users and developers **exclusively in Russian**.
@@ -266,7 +267,7 @@ An agent can always read the thread but may post only when the ticket is assigne
 | `GET` | `/users/{id}` | Get user profile by ID | `ADMIN`, Self | `200 OK`, `404 Not Found` |
 | `POST` | `/users` | Provision a new user account | `ADMIN` | `201 Created`, `409 Conflict` |
 | `PATCH`| `/users/{id}` | Partially update user profile / department / role | `ADMIN` | `200 OK`, `404 Not Found` |
-| `PATCH`| `/users/{id}/ticket-limit` | Set the active-ticket limit of an `AGENT` | `MANAGER`, `ADMIN` | `200 OK`, `409 Conflict` |
+| `PATCH`| `/users/{id}/limits` | Set the active-ticket and resolution-time limits of an `AGENT` | `MANAGER`, `ADMIN` | `200 OK`, `409 Conflict` |
 | `DELETE`| `/users/{id}` | Deactivate or remove user | `ADMIN` | `204 No Content`, `404 Not Found` |
 
 ### 7.7. Support Statistics (Manager & Admin)
@@ -336,7 +337,7 @@ frontend/
         * **Manager View (4d):** Read-only ticket and thread inspection plus a request panel with `[Одобрить]` / `[Отклонить]` for pending requests. Managers never see message submission, assign or status controls.
     * An assigned `AGENT` on an active ticket sees a request panel to `[Отказаться от заявки]` or `[Переназначить специалисту]`. The agent must provide a mandatory justification and, for reassignment, choose another agent. While a `PENDING` request exists the form is replaced with a waiting notice.
 5. **Screen 5 (Admin Console):** Accessible at `/admin` only to `ROLE_ADMIN`. Provides tabs for users, departments and categories, plus a shortcut back to the ticket list. Role selection includes `EMPLOYEE`, `AGENT`, `MANAGER` and `ADMIN`.
-6. **Screen 6 (Statistics):** Accessible at `/statistics` to `ROLE_MANAGER` and `ROLE_ADMIN`. Shows per-agent limit, total/active/resolved/closed/overdue counts, inline limit editing, and the queue of pending release/reassignment requests with decision controls.
+6. **Screen 6 (Statistics):** Accessible at `/statistics` to `ROLE_MANAGER` and `ROLE_ADMIN`. Shows per-agent ticket and time limits, total/active/resolved/closed/overdue counts, inline limit editing, and the queue of pending release/reassignment requests with decision controls.
 
 ### 8.3. Type Safety (DTO Mirroring)
 Every TypeScript type in `src/types/` must mirror its corresponding Java DTO Record. Example:
@@ -379,7 +380,7 @@ export interface TicketResponse {
 * **Start local PostgreSQL:** `docker compose up -d`
 * **Run backend application:** `./gradlew bootRun` (serves REST API and Swagger UI at `http://localhost:8080/swagger-ui.html`)
 * **Automated seeding:** On first startup `core.config.DBInitializer` idempotently creates the `IT Service Desk` department, four default incident categories and the admin account `admin@company.ru` / `Admin2024!` (password overridable via `ADMIN_PASSWORD`, full name via `ADMIN_FULL_NAME`). It also backfills `users.ticket_limit` to `10` for existing accounts.
-* **Overdue threshold:** `TICKET_OVERDUE_HOURS` (default `24`, property `app.ticket.overdue-hours`) controls when tickets turn red for agents and managers.
+* **Overdue threshold:** `TICKET_OVERDUE_HOURS` (default `24`, property `app.ticket.overdue-hours`) is the fallback when an assigned agent has no personal time limit; managers can set per-agent limits in the statistics screen.
 * **Run test suite:** `./gradlew test`
 * **Build backend archive:** `./gradlew build -x test`
 * **Run frontend dev server:** `cd frontend && npm run dev`
