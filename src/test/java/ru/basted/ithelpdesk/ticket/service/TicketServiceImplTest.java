@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
+import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
 import ru.basted.ithelpdesk.department.entity.Department;
@@ -160,6 +161,28 @@ class TicketServiceImplTest {
         assertEquals(1, tickets.size());
         verify(repository).findAllByCreatorIdOrderByCreatedAtDesc(7L);
         verify(repository, never()).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    void employeeCannotReadForeignTicketDetails() {
+        Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(user(3L, UserRole.EMPLOYEE));
+
+        assertThrows(NotFoundException.class, () -> service.getTicketDetails(1L));
+    }
+
+    @Test
+    void employeeCanReadOwnTicketDetails() {
+        User author = user(1L, UserRole.EMPLOYEE);
+        Ticket ticket = ticket(TicketStatus.NEW, author, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(author);
+        when(messageService.getMessagesByTicket(1L)).thenReturn(List.of());
+
+        var response = service.getTicketDetails(1L);
+
+        assertEquals(1L, response.id());
     }
 
     @Test

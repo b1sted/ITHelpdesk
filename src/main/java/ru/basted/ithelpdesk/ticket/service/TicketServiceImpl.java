@@ -93,7 +93,10 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional(readOnly = true)
     public TicketResponse getTicketDetails(Long id) {
-        return toResponse(findTicket(id), true);
+        Ticket ticket = findTicket(id);
+        checkViewerCanRead(ticket);
+
+        return toResponse(ticket, true);
     }
 
     @Override
@@ -202,6 +205,15 @@ public class TicketServiceImpl implements TicketService {
 
     private void checkOwnership(User user, User expected, String message) {
         checkRule(expected != null && user.getId().equals(expected.getId()), message);
+    }
+
+    private void checkViewerCanRead(Ticket ticket) {
+        User viewer = currentUser.get();
+
+        if (viewer.getRole() == UserRole.EMPLOYEE
+                && !viewer.getId().equals(ticket.getCreator().getId())) {
+            throw new NotFoundException("Не найдена заявка с ID %d".formatted(ticket.getId()));
+        }
     }
 
     private List<Ticket> findOwnTickets(User viewer, TicketStatus status) {
