@@ -96,7 +96,8 @@ public interface MessageAPI {
 
     @Operation(
             summary = "Получить переписку по заявке",
-            description = "Возвращает хронологический список сообщений по заявке"
+            description = "Возвращает хронологический список сообщений по заявке. "
+                    + "Сотрудник может читать переписку только по своим заявкам"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Список сообщений",
