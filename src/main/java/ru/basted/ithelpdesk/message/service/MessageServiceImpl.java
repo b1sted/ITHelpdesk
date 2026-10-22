@@ -68,7 +68,8 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional(readOnly = true)
     public List<MessageResponse> getMessagesByTicket(Long ticketId) {
-        ensureTicketExists(ticketId);
+        Ticket ticket = findTicket(ticketId);
+        checkViewerCanReadThread(ticket);
 
         return repository.findAllByTicketIdOrderByCreatedAtAsc(ticketId)
                 .stream()
@@ -97,9 +98,12 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void ensureTicketExists(Long ticketId) {
-        if (!ticketRepository.existsById(ticketId)) {
-            throw new NotFoundException("Не найдена заявка с ID %d".formatted(ticketId));
+    private void checkViewerCanReadThread(Ticket ticket) {
+        User viewer = currentUser.get();
+
+        if (viewer.getRole() == UserRole.EMPLOYEE
+                && !viewer.getId().equals(ticket.getCreator().getId())) {
+            throw new NotFoundException("Не найдена заявка с ID %d".formatted(ticket.getId()));
         }
     }
 

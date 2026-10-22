@@ -193,7 +193,7 @@ export function TicketDetailPage() {
 
   const isAuthor = user?.id === ticket.creator.id;
   const isAssignee = user?.id === ticket.assignee?.id;
-  const canSeeOverdue = isAgent || isManager;
+  const canSeeOverdue = isAgent || isManager || isAdmin;
   const isActive = ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status);
   const pendingRequest = requests.find((request) => request.status === 'PENDING');
 
@@ -203,7 +203,8 @@ export function TicketDetailPage() {
       (isAssignee && ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status)));
   const canAuthorWork = isAuthor && !isAdmin && ticket.status === 'RESOLVED';
   const isClosed = ticket.status === 'CLOSED';
-  const canMessage = !isClosed && !isAdmin && !isManager && (!isAgent || isAssignee);
+  const canMessage =
+    !isClosed && !isAdmin && !isManager && (isAgent ? isAssignee : isAuthor);
   const messageHint = isAdmin
     ? 'Администратор может только просматривать заявки и переписку.'
     : isManager

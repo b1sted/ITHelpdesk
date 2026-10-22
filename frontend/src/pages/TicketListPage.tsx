@@ -47,7 +47,8 @@ export function TicketListPage() {
   const navigate = useNavigate();
   const canSeeAllTickets =
     user?.role === 'AGENT' || user?.role === 'MANAGER' || user?.role === 'ADMIN';
-  const canSeeOverdue = user?.role === 'AGENT' || user?.role === 'MANAGER';
+  const canSeeOverdue =
+    user?.role === 'AGENT' || user?.role === 'MANAGER' || user?.role === 'ADMIN';
   const [tickets, setTickets] = useState<TicketResponse[]>([]);
   const [filter, setFilter] = useState<Filter>(canSeeAllTickets ? 'ALL' : 'ACTIVE');
   const [loading, setLoading] = useState(true);

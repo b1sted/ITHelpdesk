@@ -14,11 +14,11 @@ This document serves as the single source of truth for AI agents (SourceCraft, C
 ## 2. Technical Stack & Tooling
 * **Backend:**
   * **JDK:** Java 21 (LTS). Leverage records, pattern matching, and switch expressions.
-  * **Framework:** Spring Boot 3.4+ (Spring Web, Spring Data JPA, Spring Security, Validation).
+  * **Framework:** Spring Boot 4.1+ (Spring Web, Spring Data JPA, Spring Security, Validation).
   * **Build Tool:** Gradle (Groovy DSL).
   * **Database:** PostgreSQL (with Hibernate ORM).
   * **Boilerplate Reduction:** Immutable DTOs as Java `record`s; no Lombok — entities expose explicit accessors and beans rely on constructor injection.
-  * **API Documentation:** Springdoc OpenAPI 3.0 (Swagger UI).
+  * **API Documentation:** Springdoc OpenAPI 3.1 (Springdoc 3.1.1, Swagger UI).
 * **Frontend:**
   * **Core:** React 18, TypeScript, Vite.
   * **Styling:** Tailwind CSS (modern, utility-first UI).
@@ -45,7 +45,7 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 
 ### SLA / Overdue Threshold (`app.ticket.overdue-hours`, env `TICKET_OVERDUE_HOURS`, default `24`):
 
-A ticket is considered **overdue** when `now > created_at + time-limit-hours` and its status is not `RESOLVED` or `CLOSED`. For assigned tickets the time limit is taken from the assignee's `users.time_limit_hours`; unassigned tickets fall back to the global `app.ticket.overdue-hours` value. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT` and `ROLE_MANAGER` only.
+A ticket is considered **overdue** when `now > created_at + time-limit-hours` and its status is not `RESOLVED` or `CLOSED`. For assigned tickets the time limit is taken from the assignee's `users.time_limit_hours`; unassigned tickets fall back to the global `app.ticket.overdue-hours` value. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT`, `ROLE_MANAGER` and `ROLE_ADMIN` only.
 
 ### Valid Statuses (`TicketStatus` Enum):
 * `NEW` — Created, waiting in the unassigned queue.
@@ -220,7 +220,7 @@ Base Path: `/api/v1`
 |:---|:---|:---|:---|:---|
 | `POST` | `/auth/login` | Authenticate and obtain a JWT token | Public | `200 OK`, `404 Not Found` |
 
-All authenticated endpoints expect the JWT token in the `Authorization: Bearer <token>` header. The token is issued with a 24-hour validity and encodes the `role` of the user (used by `hasRole(...)` checks). Public paths always include `/auth/login` and the Swagger UI paths.
+All authenticated endpoints expect the JWT token in the `Authorization: Bearer <token>` header. The token is issued with a 24-hour validity and encodes the `role` claim; `hasRole(...)` checks use authorities derived from the current database role, so role changes apply immediately. Public paths always include `/auth/login` and the Swagger UI paths.
 
 **Resource Masking:** All API paths (except `/auth/login` and Swagger paths) are protected. When a request is unauthenticated, carries an invalid token, or lacks the required role, the server responds with `404 Not Found` and a generic `{"message": "Ресурс не найден"}` body — never `401` or `403` — so that the existence of resources is not disclosed. Authorized clients receive normal statuses (`200`, `201`, `204`, `400`, `404` for validation/missing, `409` for conflicts).
 
@@ -229,9 +229,9 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 |:---|:---|:---|:---|:---|
 | `POST` | `/tickets` | Register a new ticket (BP-1) | `EMPLOYEE` | `201 Created`, `400 Bad Request` |
 | `GET` | `/tickets` | List tickets (with filters by status/role). `EMPLOYEE` receives only own tickets; `AGENT` receives tickets assigned to them plus unassigned `NEW` tickets; `MANAGER`/`ADMIN` receive all | Authenticated | `200 OK` |
-| `GET` | `/tickets/{id}` | Get full ticket details with messages | Authenticated | `200 OK`, `404 Not Found` |
+| `GET` | `/tickets/{id}` | Get full ticket details with messages. `EMPLOYEE` may read only own tickets; `AGENT`/`MANAGER`/`ADMIN` may read any ticket | Authenticated | `200 OK`, `404 Not Found` |
 | `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` (status or personal limit) |
-| `PATCH`| `/tickets/{id}/status` | Transition status (BP-4, 5, 6, 7) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request` |
+| `PATCH`| `/tickets/{id}/status` | Transition status (BP-4, 5, 6, 7) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request`, `409 Conflict` |
 
 ### 7.3. Messages
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
@@ -325,11 +325,11 @@ frontend/
 
 ### 8.2. UI Screens & Adaptive Action Panel Rules
 1. **Screen 1 (Login):** Email and password input, stores authenticated token & user profile (`role`, `fullName`) in client state.
-2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` sees assigned tickets and the unassigned `NEW` queue with the full status filter set; `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT` and `MANAGER` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
+2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` sees assigned tickets and the unassigned `NEW` queue with the full status filter set; `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT`, `MANAGER` and `ADMIN` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
 4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c View):**
     * Left section: Ticket metadata, full description, and chronological `MessageThread`.
-    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); the author always sees the form while the ticket is not `CLOSED`; an `ADMIN` sees the whole thread in read-only mode.
+    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` sees the whole thread in read-only mode.
     * Action panel adapts dynamically based on authenticated role and current ticket status:
         * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`. Action buttons are hidden if `status === 'RESOLVED'`.
         * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.

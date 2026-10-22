@@ -1,6 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { login as loginApi } from '../api/authApi';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { getCurrentUser, login as loginApi } from '../api/authApi';
 import { profileStorage, tokenStorage } from '../api/client';
 import type { LoginRequest, UserRole } from '../types/auth';
 
@@ -36,6 +44,39 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(tokenStorage.get());
   const [user, setUser] = useState<UserProfile | null>(loadProfile());
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    const stored = profileStorage.get();
+    if (!stored) {
+      return;
+    }
+
+    let cancelled = false;
+    getCurrentUser(stored.id)
+      .then((fresh) => {
+        if (cancelled) {
+          return;
+        }
+        const profile: UserProfile = {
+          id: fresh.id,
+          email: fresh.email,
+          fullName: fresh.fullName,
+          role: fresh.role,
+        };
+        profileStorage.set(profile);
+        setUser(profile);
+      })
+      .catch(() => {
+        // The axios interceptor handles expired or revoked sessions.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const login = useCallback(async (data: LoginRequest) => {
     const response = await loginApi(data);
