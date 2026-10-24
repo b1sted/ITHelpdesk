@@ -71,6 +71,11 @@ The unprivileged nginx container serves the built SPA on port `8080`
 backend container. PostgreSQL is only reachable from the internal network and
 is never published to the host.
 
+The SPA shell (`index.html`) is served with `Cache-Control: no-store`, while
+hashed files under `/assets/` are cached immutably for 30 days. This guarantees
+that a rebuilt frontend (for example, after enabling the statistics screen) is
+picked up on the next navigation instead of an outdated cached bundle.
+
 Required env vars (see `.env.example`):
 
 | Variable | Description |
