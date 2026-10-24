@@ -33,9 +33,9 @@ This document serves as the single source of truth for AI agents (SourceCraft, C
 |:---|:---|:---|:---|
 | `ROLE_EMPLOYEE` | **Employee (Requester)** | Human | Submits technical issues, participates in ticket discussions, verifies solutions, and closes/reopens tickets. |
 | `ROLE_AGENT` | **IT Specialist (Support Agent)** | Human | Monitors the pool of incoming issues, claims tickets (within a personal active-ticket limit), communicates with users, marks incidents as resolved, and can request release/reassignment with justification. |
-| `ROLE_MANAGER` | **Support Department Manager** | Human | Monitors agent workload and SLA breaches, sets per-agent active-ticket limits, approves or rejects release/reassignment requests, and inspects all tickets read-only. |
-| `ROLE_ADMIN` | **Administrator** | Human | Manages reference data (departments, problem categories), registers new employees, manages roles and limits, and monitors company-wide statistics. |
-| `SYSTEM_DAEMON` | **System Scheduler** | Machine | Background cron runner for automated escalation and SLA audits. |
+| `ROLE_MANAGER` | **Support Department Manager** | Human | Monitors agent workload and SLA breaches, sets per-agent active-ticket and resolution-time limits, approves or rejects release/reassignment requests, extends ticket deadlines, and inspects all tickets read-only. |
+| `ROLE_ADMIN` | **Administrator** | Human | Manages reference data (departments, problem categories), registers new employees, manages roles, limits and support settings, and monitors company-wide statistics. |
+| `SYSTEM_DAEMON` | **System Scheduler** | Machine | Background runner for automated auto-closing of resolved tickets and SLA audits. |
 
 ---
 
@@ -45,7 +45,11 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 
 ### SLA / Overdue Threshold (`app.ticket.overdue-hours`, env `TICKET_OVERDUE_HOURS`, default `24`):
 
-A ticket is considered **overdue** when `now > created_at + time-limit-hours` and its status is not `RESOLVED` or `CLOSED`. For assigned tickets the time limit is taken from the assignee's `users.time_limit_hours`; unassigned tickets fall back to the global `app.ticket.overdue-hours` value. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT`, `ROLE_MANAGER` and `ROLE_ADMIN` only.
+A ticket is considered **overdue** when `now > due_at` and its status is one of `NEW`, `IN_PROGRESS`, `ANSWERED`. `WAITING_USER` pauses SLA tracking (the ball is in the requester's court), while `RESOLVED` and `CLOSED` are final states. For assigned tickets the time limit is taken from the assignee's `users.time_limit_hours`; unassigned tickets fall back to the global `app.ticket.overdue-hours` value. The deadline is derived as `due_at = created_at + limit-hours + extension_hours`. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT`, `ROLE_MANAGER` and `ROLE_ADMIN` only.
+
+### Automatic Closure (`app.ticket.auto-close-check-ms`, env `TICKET_AUTO_CLOSE_CHECK_MS`, default `3600000`):
+
+`SYSTEM_DAEMON` periodically closes `RESOLVED` tickets whose `resolved_at` is older than `support_settings.auto_close_resolved_hours`; the value `0` disables auto-closing. Each auto-close sets `status = CLOSED` and `closed_at = now`.
 
 ### Valid Statuses (`TicketStatus` Enum):
 * `NEW` — Created, waiting in the unassigned queue.
@@ -59,21 +63,23 @@ A ticket is considered **overdue** when `now > created_at + time-limit-hours` an
 
 | Process ID | Process Name | Current Status | Target Status | Authorized Actor | System Action & Side Effects |
 |:---:|:---|:---|:---|:---|:---|
-| **BP-1** | **Ticket Registration** | *None* | `NEW` | `EMPLOYEE` | Creates ticket record; `assignee` is set to `null`; sets `created_at`. |
+| **BP-1** | **Ticket Registration** | *None* | `NEW` | `EMPLOYEE` | Creates ticket record; `assignee` is set to `null`; sets `created_at` and initializes `extension_hours = 0`. |
 | **BP-2** | **Claim Ticket** | `NEW` | `IN_PROGRESS` | `AGENT` | Sets `assignee_id = authenticated_agent_id`; moves status to `IN_PROGRESS`. Rejected with `409 Conflict` when the agent already has `ticket_limit` active tickets (`IN_PROGRESS`, `WAITING_USER`, `ANSWERED`). |
 | **BP-3** | **Add Message** | *Any active* | *Unchanged* (or `ANSWERED`) | `EMPLOYEE`, `AGENT` (Assignee) | Appends a new immutable message to `messages` linked to the ticket. An agent may post only after claiming the ticket (must be its assignee) and can always read the thread. When the **author** of a `WAITING_USER` ticket sends a message, the status automatically becomes `ANSWERED`. |
 | **BP-4** | **Pause Ticket** | `IN_PROGRESS` | `WAITING_USER` | `AGENT` (Assignee) | Toggles status to indicate pending user action. |
-| **BP-5** | **Resolve Ticket** | `IN_PROGRESS`, `WAITING_USER`, `ANSWERED` | `RESOLVED` | `AGENT` (Assignee) | Sets status to `RESOLVED`; locks specialist editing actions. |
-| **BP-6** | **Confirm & Close** | `RESOLVED` | `CLOSED` | `EMPLOYEE` (Author) | Sets status to `CLOSED`; ticket moves to archive. |
-| **BP-7** | **Reopen Ticket** | `RESOLVED` | `IN_PROGRESS` | `EMPLOYEE` (Author) | Reverts status to `IN_PROGRESS`; requires a reason (`reason` field of `TicketStatusChangeRequest`). |
+| **BP-5** | **Resolve Ticket** | `IN_PROGRESS`, `WAITING_USER`, `ANSWERED` | `RESOLVED` | `AGENT` (Assignee) | Sets status to `RESOLVED`, records `resolved_at`, clears `closed_at`; locks specialist editing actions. |
+| **BP-6** | **Confirm & Close** | `RESOLVED` | `CLOSED` | `EMPLOYEE` (Author) | Sets status to `CLOSED`, records `closed_at`; ticket moves to archive. |
+| **BP-7** | **Reopen Ticket** | `RESOLVED` | `IN_PROGRESS` | `EMPLOYEE` (Author) | Reverts status to `IN_PROGRESS`, clears `resolved_at` and `closed_at`; requires a reason (`reason` field of `TicketStatusChangeRequest`). |
 | **BP-8** | **Resume Work** | `ANSWERED` | `IN_PROGRESS` | `AGENT` (Assignee) | The specialist continues working after the author's reply. |
 | **BP-9** | **Request Release** | *Any active assigned* | *Unchanged* | `AGENT` (Assignee) | Creates a `PENDING` `ticket_requests` record of type `RELEASE` with a mandatory `reason`. No ticket mutation happens until the manager decides. |
-| **BP-10** | **Request Reassignment** | *Any active assigned* | *Unchanged* | `AGENT` (Assignee) | Creates a `PENDING` `ticket_requests` record of type `REASSIGN` with a mandatory `reason` and `target_assignee_id` pointing to another `AGENT`. No ticket mutation happens until the manager decides. |
-| **BP-11** | **Decide Ticket Request** | *Pending request* | *APPROVED / REJECTED* | `MANAGER`, `ADMIN` | Approving `RELEASE` clears `assignee_id` and sets `NEW`. Approving `REASSIGN` assigns the target agent and sets `IN_PROGRESS` (target capacity is re-checked). Rejecting leaves the ticket unchanged. Every decision stores `decided_by_id`, `decided_at` and an optional `decision_comment`. |
+| **BP-10** | **Request Reassignment** | *Any active assigned* | *Unchanged* | `AGENT` (Assignee) | Creates a `PENDING` `ticket_requests` record of type `REASSIGN` with a mandatory `reason` and an optional `target_assignee_id` pointing to another `AGENT` (the manager may choose instead). No ticket mutation happens until the manager decides. |
+| **BP-11** | **Decide Ticket Request** | *Pending request* | *APPROVED / REJECTED* | `MANAGER`, `ADMIN` | Approving `RELEASE` clears `assignee_id` and sets `NEW`. Approving `REASSIGN` assigns the target agent (chosen by the requester or the manager) and sets `IN_PROGRESS` (target capacity is re-checked). Rejecting leaves the ticket unchanged. Every decision stores `decided_by_id`, `decided_at` and an optional `decision_comment`. |
+| **BP-12** | **Extend Deadline** | *Any active assigned* | *Unchanged* | `AGENT` (Assignee), `MANAGER`, `ADMIN` | Adds an immutable `ticket_deadline_extensions` row with the requested hours (1–720 in total) and a mandatory `reason`, then increments `tickets.extension_hours`. The deadline becomes `created_at + limit-hours + extension_hours`. |
+| **BP-13** | **Auto-Close Resolved** | `RESOLVED` | `CLOSED` | `SYSTEM_DAEMON` | When `support_settings.auto_close_resolved_hours > 0` and `resolved_at` is older than the configured window, sets `status = CLOSED` and `closed_at = now`. |
 
 ---
 
-## 5. Relational Database Schema (6 Entities)
+## 5. Relational Database Schema (8 Entities)
 
 All tables must be normalized (3NF). Class names must be **singular**, and table names must be **plural**.
 
@@ -85,7 +91,10 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
                              ▼                 ▼
  [ categories ]  1 ──────── N [ tickets ] 1 ───┘
                                   │
-                                  │ 1 ─── N [ ticket_requests ]
+                                  ├── 1 ─── N [ ticket_requests ]
+                                  └── 1 ─── N [ ticket_deadline_extensions ]
+
+ [ support_settings ] — singleton row with automation settings
 ```
 
 ### Table Definitions:
@@ -114,10 +123,13 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
     * `description`: `TEXT` (Not Null)
     * `status`: `VARCHAR(30)` (Not Null, Enum)
     * `created_at`: `TIMESTAMP` (Not Null)
+    * `resolved_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `RESOLVED`)
+    * `closed_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `CLOSED`)
+    * `extension_hours`: `INTEGER` (Not Null, default 0, cumulative deadline extension)
     * `creator_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
     * `assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
     * `category_id`: `BIGINT` (Foreign Key -> `categories.id`, Not Null)
-    * Derived only (not stored): `due_at = created_at + overdue-hours`, `overdue = active status && now > due_at`.
+    * Derived only (not stored): `due_at = created_at + limit-hours + extension_hours`, `overdue = status in (NEW, IN_PROGRESS, ANSWERED) && now > due_at`.
 
 5. **`messages`**
     * `id`: `BIGINT` (Primary Key, Identity)
@@ -136,8 +148,20 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
     * `decided_at`: `TIMESTAMP` (Nullable)
     * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
     * `requester_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
-    * `target_assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable, required for `REASSIGN`)
+    * `target_assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable, optional for `REASSIGN`)
     * `decided_by_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
+
+7. **`ticket_deadline_extensions`**
+    * `id`: `BIGINT` (Primary Key, Identity)
+    * `hours`: `INTEGER` (Not Null, 1–720 per action)
+    * `reason`: `TEXT` (Not Null, mandatory justification)
+    * `created_at`: `TIMESTAMP` (Not Null)
+    * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
+    * `created_by_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+
+8. **`support_settings`**
+    * `id`: `BIGINT` (Primary Key, Identity)
+    * `auto_close_resolved_hours`: `INTEGER` (Not Null, default 0; 0 disables auto-closing)
 
 ---
 
@@ -189,9 +213,11 @@ ru.basted.ithelpdesk.<feature>/
 * **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists and derives granted authorities from the current database role (so role changes apply immediately), plus validates the token issuer.
 * **Login rate limit:** Failed login attempts per email are limited (`app.rate-limit.max-attempts`, default 5 per 5 minutes) and respond `429 Too Many Requests`.
 * **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
-* **Manager authority:** `ROLE_MANAGER` (displayed as **Руководитель**) and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents and change an agent's `ticket_limit` and `time_limit_hours`. Managers cannot claim tickets, change ticket statuses, or post messages.
+* **Manager authority:** `ROLE_MANAGER` (displayed as **Руководитель**) and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents, change an agent's `ticket_limit` and `time_limit_hours`, extend ticket deadlines and manage support settings. Managers cannot claim tickets, change ticket statuses, or post messages.
 * **Agent capacity:** `AgentCapacityPolicy` enforces the per-agent active-ticket limit on claim and on approved reassignment. Counted statuses are `IN_PROGRESS`, `WAITING_USER`, `ANSWERED`.
-* **SLA:** each agent has a persisted `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets and for agents without an explicit limit.
+* **SLA:** each agent has a persisted `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets and for agents without an explicit limit. `WAITING_USER` tickets are excluded from overdue detection.
+* **Deadline extension:** the assigned agent, a manager or an administrator can extend an active ticket by 1–720 hours in total with a mandatory reason. Every action is stored in `ticket_deadline_extensions` and increments `tickets.extension_hours`.
+* **Auto-closing:** `SYSTEM_DAEMON` runs every `app.ticket.auto-close-check-ms` (default 1 hour) and closes `RESOLVED` tickets older than `support_settings.auto_close_resolved_hours`; `0` disables it.
 
 ### 6.5. OpenAPI (Swagger) Documentation, Validation & Localization Rules
 The system communicates with users and developers **exclusively in Russian**.
@@ -231,7 +257,8 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 | `GET` | `/tickets` | List tickets (with filters by status/role). `EMPLOYEE` receives only own tickets; `AGENT` receives tickets assigned to them plus unassigned `NEW` tickets; `MANAGER`/`ADMIN` receive all | Authenticated | `200 OK` |
 | `GET` | `/tickets/{id}` | Get full ticket details with messages. `EMPLOYEE` may read only own tickets; `AGENT`/`MANAGER`/`ADMIN` may read any ticket | Authenticated | `200 OK`, `404 Not Found` |
 | `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` (status or personal limit) |
-| `PATCH`| `/tickets/{id}/status` | Transition status (BP-4, 5, 6, 7) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request`, `409 Conflict` |
+| `PATCH`| `/tickets/{id}/status` | Transition status (BP-4–8) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request`, `409 Conflict` |
+| `PATCH`| `/tickets/{id}/deadline` | Extend the ticket deadline with a mandatory reason (BP-12) | `AGENT` (Assignee), `MANAGER`, `ADMIN` | `200 OK`, `400 Bad Request`, `409 Conflict` |
 
 ### 7.3. Messages
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
@@ -274,16 +301,23 @@ An agent can always read the thread but may post only when the ticket is assigne
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
 | `GET` | `/statistics/agents` | Per-agent workload: limit, total, active, resolved, closed and overdue ticket counts | `MANAGER`, `ADMIN` | `200 OK` |
+| `GET` | `/statistics/period` | Created, resolved and closed ticket counts by month (current year) or by year (last five years), plus average resolution time. Optional `granularity=MONTH\|YEAR` | `MANAGER`, `ADMIN` | `200 OK` |
 
 ### 7.8. Ticket Requests (Release / Reassignment)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
 | `POST` | `/tickets/{id}/requests` | Create a `RELEASE` or `REASSIGN` request with mandatory reason (BP-9, BP-10) | `AGENT` (Assignee) | `201 Created`, `400 Bad Request`, `409 Conflict` |
 | `GET` | `/tickets/{id}/requests` | List the request history of one ticket | `AGENT`, `MANAGER`, `ADMIN` | `200 OK`, `404 Not Found` |
-| `GET` | `/requests` | List all requests, optionally filtered by `status` (e.g. `PENDING`) | `MANAGER`, `ADMIN` | `200 OK` |
+| `GET` | `/requests` | List all requests, optionally filtered by `status` (`PENDING`, `APPROVED`, `REJECTED`); without a filter returns the full history | `MANAGER`, `ADMIN` | `200 OK` |
 | `PATCH`| `/requests/{id}/decision` | Approve or reject a request, optionally with a comment (BP-11) | `MANAGER`, `ADMIN` | `200 OK`, `400 Bad Request`, `409 Conflict` |
 
 Only one `PENDING` request per ticket is allowed. An approved `RELEASE` returns the ticket to `NEW` with no assignee; an approved `REASSIGN` transfers it to the chosen agent and re-checks that agent's capacity.
+
+### 7.9. Support Settings (Manager & Admin)
+| HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
+|:---|:---|:---|:---|:---|
+| `GET` | `/settings/support` | Read the auto-close window for `RESOLVED` tickets | `MANAGER`, `ADMIN` | `200 OK` |
+| `PUT` | `/settings/support` | Update `autoCloseResolvedHours` (0 disables auto-closing) | `MANAGER`, `ADMIN` | `200 OK`, `400 Bad Request` |
 
 ---
 
@@ -296,11 +330,13 @@ The frontend is a modern React SPA located in `/frontend`, consuming the Spring 
 frontend/
 ├── src/
 │   ├── api/                      <-- Axios client and modular API functions
-│   │   ├── client.ts             (baseURL: '/api/v1', interceptors)
+│   │   ├── client.ts             (baseURL: '/api/v1', interceptors, profile storage)
 │   │   ├── authApi.ts
+│   │   ├── adminApi.ts           (users, departments, categories, agent limits)
+│   │   ├── errorMessage.ts
 │   │   ├── ticketsApi.ts
 │   │   ├── ticketRequestsApi.ts
-│   │   └── statisticsApi.ts
+│   │   └── statisticsApi.ts      (agent/period statistics and support settings)
 │   ├── types/                    <-- TypeScript interfaces strictly mirroring Java DTOs
 │   │   ├── auth.ts
 │   │   ├── user.ts
@@ -309,14 +345,19 @@ frontend/
 │   │   ├── Navbar.tsx            (Top header with tickets, statistics, admin links, User info and Logout)
 │   │   ├── StatusBadge.tsx       (Color-coded status pills: NEW, IN_PROGRESS, etc.)
 │   │   ├── MessageThread.tsx     (Ticket conversation timeline + message submission form)
-│   │   └── TicketRequestList.tsx (Release/reassignment request history and manager decision controls)
+│   │   ├── TicketRequestList.tsx (Release/reassignment request history and manager decision controls)
+│   │   └── *Route.tsx            (ProtectedRoute, EmployeeRoute, ManagerRoute, AdminRoute guards)
+│   ├── context/
+│   │   └── AuthContext.tsx       (Token/profile state, login, logout and profile refresh)
 │   ├── pages/
 │   │   ├── LoginPage.tsx         (Screen 1: Authentication form)
-│   │   ├── TicketListPage.tsx    (Screen 2: Table with filter tabs: All, New, In Progress, Resolved)
+│   │   ├── TicketListPage.tsx    (Screen 2: Table with role-aware filter tabs)
 │   │   ├── CreateTicketPage.tsx  (Screen 3: Ticket submission form)
 │   │   ├── TicketDetailPage.tsx  (Screen 4: Adaptive detail view for 4a/4b/4c/4d)
-│   │   ├── StatisticsPage.tsx    (Screen 6: Agent workload, limits and pending requests)
+│   │   ├── StatisticsPage.tsx    (Screen 6: Agent workload, period dynamics, settings and requests)
 │   │   └── AdminPage.tsx         (Screen 5: Admin console for users, departments and categories)
+│   ├── utils/
+│   │   └── roleLabels.ts         (Russian labels for all roles)
 │   ├── App.tsx                   (Router and Role Context)
 │   └── main.tsx
 ├── package.json
@@ -327,17 +368,18 @@ frontend/
 1. **Screen 1 (Login):** Email and password input, stores authenticated token & user profile (`role`, `fullName`) in client state.
 2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` sees assigned tickets and the unassigned `NEW` queue with the full status filter set; `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT`, `MANAGER` and `ADMIN` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
-4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c View):**
-    * Left section: Ticket metadata, full description, and chronological `MessageThread`.
-    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` sees the whole thread in read-only mode.
+4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c / 4d View):**
+    * Left section: Ticket metadata (including `resolvedAt` / `closedAt` when present), full description, and chronological `MessageThread`.
+    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` and a `MANAGER` see the whole thread in read-only mode.
     * Action panel adapts dynamically based on authenticated role and current ticket status:
-        * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`. Action buttons are hidden if `status === 'RESOLVED'`.
+        * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`, and `[Продолжить работу]` / `[Решено]` if `status === 'ANSWERED'`. Action buttons are hidden if `status === 'RESOLVED'`.
         * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.
         * **Admin View (4c):** Read-only inspection of any ticket. No assign, status or message submission actions are shown; administrators can still decide pending requests and see overdue markers in the list.
         * **Manager View (4d):** Read-only ticket and thread inspection plus a request panel with `[Одобрить]` / `[Отклонить]` for pending requests. Managers never see message submission, assign or status controls.
     * An assigned `AGENT` on an active ticket sees a request panel to `[Отказаться от заявки]` or `[Переназначить специалисту]`. The agent must provide a mandatory justification and, for reassignment, choose another agent. While a `PENDING` request exists the form is replaced with a waiting notice.
-5. **Screen 5 (Admin Console):** Accessible at `/admin` only to `ROLE_ADMIN`. Provides tabs for users, departments and categories, plus a shortcut back to the ticket list. Role selection includes `EMPLOYEE`, `AGENT`, `MANAGER` and `ADMIN`.
-6. **Screen 6 (Statistics):** Accessible at `/statistics` to `ROLE_MANAGER` and `ROLE_ADMIN`. Shows per-agent ticket and time limits, total/active/resolved/closed/overdue counts, inline limit editing, and the queue of pending release/reassignment requests with decision controls.
+    * An assigned `AGENT`, a `MANAGER` or an `ADMIN` can open the deadline extension dialog, enter 1–720 hours and a mandatory reason; the ticket then shows the extended `dueAt` and the full extension history.
+5. **Screen 5 (Admin Console):** Accessible at `/admin` only to `ROLE_ADMIN`. Provides tabs for users, departments and categories, plus a shortcut back to the ticket list. Users can be created, edited (full name, email, department, role) and deleted; roles include `EMPLOYEE`, `AGENT`, `MANAGER` and `ADMIN`.
+6. **Screen 6 (Statistics):** Accessible at `/statistics` to `ROLE_MANAGER` and `ROLE_ADMIN`. Shows per-agent ticket and time limits, total/active/resolved/closed/overdue counts, inline limit editing, created/resolved/closed dynamics by month or year with average resolution time, the auto-close settings form, and the release/reassignment request queue with a pending/all-history filter and decision controls.
 
 ### 8.3. Type Safety (DTO Mirroring)
 Every TypeScript type in `src/types/` must mirror its corresponding Java DTO Record. Example:
@@ -359,6 +401,14 @@ export interface MessageResponse {
   author: UserSummary;
 }
 
+export interface TicketDeadlineExtensionResponse {
+  id: number;
+  hours: number;
+  reason: string;
+  createdAt: string;
+  createdBy: UserSummary;
+}
+
 export interface TicketResponse {
   id: number;
   title: string;
@@ -370,6 +420,10 @@ export interface TicketResponse {
   categoryName: string;
   overdue: boolean;
   dueAt: string;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  extensionHours: number;
+  deadlineExtensions: TicketDeadlineExtensionResponse[];
   messages: MessageResponse[];
 }
 ```
@@ -379,8 +433,9 @@ export interface TicketResponse {
 ## 9. Build & Verification Commands
 * **Start local PostgreSQL:** `docker compose up -d`
 * **Run backend application:** `./gradlew bootRun` (serves REST API and Swagger UI at `http://localhost:8080/swagger-ui.html`)
-* **Automated seeding:** On first startup `core.config.DBInitializer` idempotently creates the `IT Service Desk` department, four default incident categories and the admin account `admin@company.ru` / `Admin2024!` (password overridable via `ADMIN_PASSWORD`, full name via `ADMIN_FULL_NAME`). It also backfills `users.ticket_limit` to `10` for existing accounts.
+* **Automated seeding & repair:** On startup `core.config.DBInitializer` idempotently creates the `IT Service Desk` department, four default incident categories, the admin account `admin@company.ru` / `Admin2024!` (password overridable via `ADMIN_PASSWORD`, full name via `ADMIN_FULL_NAME`) and the singleton `support_settings` row. It also backfills `users.ticket_limit` to `10`, `users.time_limit_hours` to `24` for agents, `tickets.extension_hours` to `0`, and restores missing `tickets.resolved_at` / `tickets.closed_at` values for historical `RESOLVED` and `CLOSED` tickets.
 * **Overdue threshold:** `TICKET_OVERDUE_HOURS` (default `24`, property `app.ticket.overdue-hours`) is the fallback when an assigned agent has no personal time limit; managers can set per-agent limits in the statistics screen.
+* **Auto-close scheduler:** `TICKET_AUTO_CLOSE_CHECK_MS` (default `3600000`, property `app.ticket.auto-close-check-ms`) controls how often `SYSTEM_DAEMON` checks for `RESOLVED` tickets to close.
 * **Run test suite:** `./gradlew test`
 * **Build backend archive:** `./gradlew build -x test`
 * **Run frontend dev server:** `cd frontend && npm run dev`
