@@ -2,8 +2,9 @@ package ru.basted.ithelpdesk.statistics.service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.Month;
+import java.time.YearMonth;
 import java.time.format.TextStyle;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,22 +71,35 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private PeriodStatisticsResponse buildMonthStatistics(List<Ticket> tickets, LocalDateTime now) {
-        int year = now.getYear();
+        YearMonth currentMonth = YearMonth.from(now);
+        YearMonth firstMonth = tickets.isEmpty()
+                ? YearMonth.of(now.getYear(), 1)
+                : YearMonth.from(firstActivity(tickets, now));
+        YearMonth startMonth = firstMonth.isAfter(currentMonth) ? currentMonth : firstMonth;
+        YearMonth endMonth = tickets.isEmpty()
+                ? YearMonth.of(now.getYear(), 12)
+                : currentMonth;
+        boolean multiYear = startMonth.getYear() != endMonth.getYear();
         Locale russian = Locale.forLanguageTag("ru");
-        Bucket[] buckets = new Bucket[12];
+        int bucketCount = (int) ChronoUnit.MONTHS.between(startMonth, endMonth) + 1;
+        Bucket[] buckets = new Bucket[bucketCount];
 
-        for (int month = 1; month <= 12; month++) {
-            String label = Month.of(month).getDisplayName(TextStyle.SHORT, russian);
-            buckets[month - 1] = new Bucket(label);
+        for (int index = 0; index < bucketCount; index++) {
+            YearMonth month = startMonth.plusMonths(index);
+            String label = month.getMonth().getDisplayName(TextStyle.SHORT, russian);
+            if (multiYear) {
+                label = label + " " + String.format("%02d", month.getYear() % 100);
+            }
+            buckets[index] = new Bucket(label);
         }
 
-        LocalDateTime from = LocalDateTime.of(year, 1, 1, 0, 0);
-        LocalDateTime to = LocalDateTime.of(year + 1, 1, 1, 0, 0);
+        LocalDateTime from = startMonth.atDay(1).atStartOfDay();
+        LocalDateTime to = endMonth.plusMonths(1).atDay(1).atStartOfDay();
 
         for (Ticket ticket : tickets) {
-            addToMonthBucket(buckets, ticket.getCreatedAt(), year, Bucket::markCreated);
-            addToMonthBucket(buckets, ticket.getResolvedAt(), year, Bucket::markResolved);
-            addToMonthBucket(buckets, ticket.getClosedAt(), year, Bucket::markClosed);
+            addToMonthBucket(buckets, ticket.getCreatedAt(), startMonth, Bucket::markCreated);
+            addToMonthBucket(buckets, ticket.getResolvedAt(), startMonth, Bucket::markResolved);
+            addToMonthBucket(buckets, ticket.getClosedAt(), startMonth, Bucket::markClosed);
         }
 
         return toPeriodResponse(StatisticsGranularity.MONTH, buckets, tickets, from, to);
@@ -93,48 +107,67 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private PeriodStatisticsResponse buildYearStatistics(List<Ticket> tickets, LocalDateTime now) {
         int currentYear = now.getYear();
-        int startYear = currentYear - 4;
-        Bucket[] buckets = new Bucket[5];
+        int firstYear = tickets.isEmpty()
+                ? currentYear
+                : Math.min(firstActivity(tickets, now).getYear(), currentYear);
+        int endYear = Math.max(currentYear, firstYear + 4);
+        int bucketCount = endYear - firstYear + 1;
+        Bucket[] buckets = new Bucket[bucketCount];
 
-        for (int index = 0; index < buckets.length; index++) {
-            buckets[index] = new Bucket(String.valueOf(startYear + index));
+        for (int index = 0; index < bucketCount; index++) {
+            buckets[index] = new Bucket(String.valueOf(firstYear + index));
         }
 
-        LocalDateTime from = LocalDateTime.of(startYear, 1, 1, 0, 0);
-        LocalDateTime to = LocalDateTime.of(currentYear + 1, 1, 1, 0, 0);
+        LocalDateTime from = LocalDateTime.of(firstYear, 1, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(endYear + 1, 1, 1, 0, 0);
 
         for (Ticket ticket : tickets) {
-            addToBucket(buckets, ticket.getCreatedAt(), startYear, currentYear, Bucket::markCreated);
-            addToBucket(buckets, ticket.getResolvedAt(), startYear, currentYear, Bucket::markResolved);
-            addToBucket(buckets, ticket.getClosedAt(), startYear, currentYear, Bucket::markClosed);
+            addToBucket(buckets, ticket.getCreatedAt(), firstYear, Bucket::markCreated);
+            addToBucket(buckets, ticket.getResolvedAt(), firstYear, Bucket::markResolved);
+            addToBucket(buckets, ticket.getClosedAt(), firstYear, Bucket::markClosed);
         }
 
         return toPeriodResponse(StatisticsGranularity.YEAR, buckets, tickets, from, to);
     }
 
+    private LocalDateTime firstActivity(List<Ticket> tickets, LocalDateTime fallback) {
+        return tickets.stream()
+                .map(Ticket::getCreatedAt)
+                .filter(date -> date != null)
+                .min(LocalDateTime::compareTo)
+                .orElse(fallback);
+    }
+
     private void addToMonthBucket(
             Bucket[] buckets,
             LocalDateTime date,
-            int year,
+            YearMonth startMonth,
             BucketAction action
     ) {
-        if (date == null || date.getYear() != year) {
+        if (date == null) {
             return;
         }
-        action.apply(buckets[date.getMonthValue() - 1], date);
+        long index = ChronoUnit.MONTHS.between(startMonth, YearMonth.from(date));
+        if (index < 0 || index >= buckets.length) {
+            return;
+        }
+        action.apply(buckets[(int) index], date);
     }
 
     private void addToBucket(
             Bucket[] buckets,
             LocalDateTime date,
             int startYear,
-            int endYear,
             BucketAction action
     ) {
-        if (date == null || date.getYear() < startYear || date.getYear() > endYear) {
+        if (date == null) {
             return;
         }
-        action.apply(buckets[date.getYear() - startYear], date);
+        int index = date.getYear() - startYear;
+        if (index < 0 || index >= buckets.length) {
+            return;
+        }
+        action.apply(buckets[index], date);
     }
 
     private PeriodStatisticsResponse toPeriodResponse(

@@ -35,28 +35,51 @@ export function StatisticsPage() {
   const [periodError, setPeriodError] = useState('');
   const [requestStatus, setRequestStatus] = useState<TicketRequestStatus | 'ALL'>('PENDING');
   const [loading, setLoading] = useState(true);
+  const [requestsLoading, setRequestsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [requestError, setRequestError] = useState('');
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      getAgentStatistics(),
-      getTicketRequestsByStatus(requestStatus === 'ALL' ? undefined : requestStatus),
-      getAgents(),
-      getSupportSettings(),
-    ])
-      .then(([stats, requestList, agentList, settings]) => {
+  const loadOverview = useCallback((showLoader = true) => {
+    if (showLoader) {
+      setLoading(true);
+    }
+    return Promise.all([getAgentStatistics(), getAgents(), getSupportSettings()])
+      .then(([stats, agentList, settings]) => {
         setError('');
         setStatistics(stats);
-        setRequests(requestList);
         setAgents(agentList);
         setAutoCloseHours(String(settings.autoCloseResolvedHours));
       })
       .catch(() => setError('Не удалось загрузить статистику'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showLoader) {
+          setLoading(false);
+        }
+      });
+  }, []);
+
+  const loadRequests = useCallback(() => {
+    setRequestsLoading(true);
+    return getTicketRequestsByStatus(requestStatus === 'ALL' ? undefined : requestStatus)
+      .then((requestList) => {
+        setRequestError('');
+        setRequests(requestList);
+      })
+      .catch(() => setRequestError('Не удалось загрузить запросы'))
+      .finally(() => setRequestsLoading(false));
   }, [requestStatus]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    void loadOverview();
+  }, [loadOverview]);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
+
+  const handleLimitsSaved = useCallback(() => {
+    void loadOverview(false);
+  }, [loadOverview]);
 
   const loadPeriod = useCallback(() => {
     setPeriodLoading(true);
@@ -101,7 +124,7 @@ export function StatisticsPage() {
   ) => {
     try {
       await decideTicketRequest(requestId, { status, comment, targetAssigneeId });
-      load();
+      await Promise.all([loadOverview(false), loadRequests()]);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Не удалось сохранить решение по запросу'));
     }
@@ -143,7 +166,8 @@ export function StatisticsPage() {
               <div>
                 <h2 className="text-sm font-semibold text-slate-700">Динамика заявок</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Созданные, решённые и закрытые заявки по месяцам текущего года или по годам.
+                  Созданные, решённые и закрытые заявки по месяцам с первой заявки или по годам
+                  (не менее пяти лет).
                 </p>
               </div>
               <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
@@ -169,23 +193,39 @@ export function StatisticsPage() {
                 </button>
               </div>
             </div>
-            {periodLoading ? (
-              <p className="py-8 text-center text-sm text-slate-400">Загрузка...</p>
-            ) : periodError ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-red-600">{periodError}</p>
-                <button
-                  onClick={loadPeriod}
-                  className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            <div className="relative min-h-[19rem]">
+              {period && (
+                <div
+                  aria-busy={periodLoading}
+                  className={`transition-opacity ${periodLoading ? 'opacity-60' : 'opacity-100'}`}
                 >
-                  Повторить
-                </button>
-              </div>
-            ) : !period ? (
-              <p className="py-8 text-center text-sm text-slate-400">Данных пока нет.</p>
-            ) : (
-              <PeriodChart data={period} />
-            )}
+                  <PeriodChart data={period} />
+                </div>
+              )}
+              {periodLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="rounded-md bg-white/90 px-3 py-1.5 text-sm text-slate-500 shadow-sm">
+                    Загрузка...
+                  </p>
+                </div>
+              )}
+              {!periodLoading && periodError && (
+                <div className="flex min-h-[19rem] flex-col items-center justify-center">
+                  <p className="text-sm text-red-600">{periodError}</p>
+                  <button
+                    onClick={loadPeriod}
+                    className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Повторить
+                  </button>
+                </div>
+              )}
+              {!periodLoading && !periodError && !period && (
+                <p className="flex min-h-[19rem] items-center justify-center text-sm text-slate-400">
+                  Данных пока нет.
+                </p>
+              )}
+            </div>
           </section>
 
           <section className="rounded-lg bg-white p-5 shadow">
@@ -244,10 +284,20 @@ export function StatisticsPage() {
                       </td>
                       <td className="px-3 py-2 text-slate-500">{agent.departmentName}</td>
                       <td className="px-3 py-2">
-                        <LimitEditor field="ticketLimit" agent={agent} onSaved={load} onError={setError} />
+                        <LimitEditor
+                          field="ticketLimit"
+                          agent={agent}
+                          onSaved={handleLimitsSaved}
+                          onError={setError}
+                        />
                       </td>
                       <td className="px-3 py-2">
-                        <LimitEditor field="timeLimitHours" agent={agent} onSaved={load} onError={setError} />
+                        <LimitEditor
+                          field="timeLimitHours"
+                          agent={agent}
+                          onSaved={handleLimitsSaved}
+                          onError={setError}
+                        />
                       </td>
                       <td className="px-3 py-2 text-slate-700">{agent.activeTickets}</td>
                       <td className="px-3 py-2 text-slate-700">{agent.resolvedTickets}</td>
@@ -307,12 +357,26 @@ export function StatisticsPage() {
                 </button>
               </div>
             </div>
-            <TicketRequestList
-              requests={requests}
-              agents={agents}
-              showTicket
-              onDecide={handleDecide}
-            />
+            {requestError && (
+              <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {requestError}
+              </p>
+            )}
+            {requestsLoading && requests.length === 0 ? (
+              <p className="py-2 text-sm text-slate-400">Загрузка...</p>
+            ) : (
+              <div
+                aria-busy={requestsLoading}
+                className={`transition-opacity ${requestsLoading ? 'opacity-60' : 'opacity-100'}`}
+              >
+                <TicketRequestList
+                  requests={requests}
+                  agents={agents}
+                  showTicket
+                  onDecide={handleDecide}
+                />
+              </div>
+            )}
           </section>
         </div>
       )}
@@ -342,7 +406,10 @@ function PeriodChart({ data }: { data: PeriodStatisticsResponse }) {
       <div className="overflow-x-auto">
         <div className="flex h-56 min-w-[520px] items-end gap-2">
           {data.buckets.map((bucket) => (
-            <div key={bucket.label} className="flex flex-1 flex-col items-center gap-2">
+            <div
+              key={bucket.label}
+              className="flex min-w-[44px] flex-1 flex-col items-center gap-2"
+            >
               <div className="flex h-44 w-full items-end justify-center gap-1">
                 <Bar
                   value={bucket.created}

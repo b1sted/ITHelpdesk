@@ -1,10 +1,13 @@
 package ru.basted.ithelpdesk.statistics.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -66,9 +69,10 @@ class StatisticsServiceImplTest {
     }
 
     @Test
-    void aggregatesMonthlyPeriodStatistics() {
+    void aggregatesMonthlyPeriodStatisticsFromFirstActivity() {
         User agent = user(2L, UserRole.AGENT);
-        LocalDateTime created = LocalDateTime.of(LocalDateTime.now().getYear(), 1, 10, 10, 0);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime created = LocalDateTime.of(now.getYear(), 1, 10, 10, 0);
         Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
         ticket.setResolvedAt(created.plusHours(20));
         ticket.setClosedAt(created.plusHours(24));
@@ -77,7 +81,7 @@ class StatisticsServiceImplTest {
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
 
-        assertEquals(12, statistics.buckets().size());
+        assertEquals(now.getMonthValue(), statistics.buckets().size());
         assertEquals(1, statistics.totalCreated());
         assertEquals(1, statistics.totalResolved());
         assertEquals(1, statistics.totalClosed());
@@ -88,8 +92,30 @@ class StatisticsServiceImplTest {
     @Test
     void distributesMonthlyStatisticsAcrossCorrectMonths() {
         User agent = user(2L, UserRole.AGENT);
-        int year = LocalDateTime.now().getYear();
-        LocalDateTime created = LocalDateTime.of(year, 10, 10, 10, 0);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime created = LocalDateTime.of(now.getYear(), 1, 10, 10, 0);
+        LocalDateTime resolved = now.withDayOfMonth(10).withHour(15).withMinute(0).withSecond(0).withNano(0);
+        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
+        ticket.setResolvedAt(resolved);
+        ticket.setClosedAt(resolved.plusHours(4));
+
+        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+
+        var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
+
+        int currentMonthIndex = now.getMonthValue() - 1;
+        assertEquals(1, statistics.buckets().getFirst().created());
+        assertEquals(1, statistics.buckets().get(currentMonthIndex).resolved());
+        assertEquals(1, statistics.buckets().get(currentMonthIndex).closed());
+    }
+
+    @Test
+    void spansSeveralYearsInMonthlyStatistics() {
+        User agent = user(2L, UserRole.AGENT);
+        LocalDateTime now = LocalDateTime.now();
+        YearMonth currentMonth = YearMonth.from(now);
+        YearMonth firstMonth = currentMonth.minusMonths(13);
+        LocalDateTime created = firstMonth.atDay(10).atTime(10, 0);
         Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
         ticket.setResolvedAt(created.plusHours(20));
         ticket.setClosedAt(created.plusHours(24));
@@ -98,10 +124,49 @@ class StatisticsServiceImplTest {
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
 
-        assertEquals(0, statistics.buckets().getFirst().created());
-        assertEquals(1, statistics.buckets().get(9).created());
-        assertEquals(1, statistics.buckets().get(9).resolved());
-        assertEquals(1, statistics.buckets().get(9).closed());
+        int expectedBuckets = (int) ChronoUnit.MONTHS.between(firstMonth, currentMonth) + 1;
+        assertEquals(expectedBuckets, statistics.buckets().size());
+        assertEquals(1, statistics.buckets().getFirst().created());
+        assertTrue(statistics.buckets().getFirst().label()
+                .endsWith(String.format("%02d", firstMonth.getYear() % 100)));
+    }
+
+    @Test
+    void anchorsYearStatisticsToFirstActivityYear() {
+        User agent = user(2L, UserRole.AGENT);
+        int currentYear = LocalDateTime.now().getYear();
+        int firstYear = currentYear - 5;
+        LocalDateTime created = LocalDateTime.of(firstYear, 6, 10, 10, 0);
+        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
+        ticket.setResolvedAt(created.plusHours(20));
+        ticket.setClosedAt(created.plusHours(24));
+
+        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+
+        var statistics = service.getPeriodStatistics(StatisticsGranularity.YEAR);
+
+        assertEquals(6, statistics.buckets().size());
+        assertEquals(String.valueOf(firstYear), statistics.buckets().getFirst().label());
+        assertEquals(String.valueOf(currentYear), statistics.buckets().getLast().label());
+        assertEquals(1, statistics.buckets().getFirst().created());
+    }
+
+    @Test
+    void padsNewYearStatisticsWithFourFutureYears() {
+        User agent = user(2L, UserRole.AGENT);
+        int currentYear = LocalDateTime.now().getYear();
+        LocalDateTime created = LocalDateTime.of(currentYear, 6, 10, 10, 0);
+        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
+        ticket.setResolvedAt(created.plusHours(20));
+        ticket.setClosedAt(created.plusHours(24));
+
+        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+
+        var statistics = service.getPeriodStatistics(StatisticsGranularity.YEAR);
+
+        assertEquals(5, statistics.buckets().size());
+        assertEquals(String.valueOf(currentYear), statistics.buckets().getFirst().label());
+        assertEquals(String.valueOf(currentYear + 4), statistics.buckets().getLast().label());
     }
 
     private Ticket ticket(TicketStatus status, User assignee, LocalDateTime createdAt) {
