@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.department.entity.Department;
+import ru.basted.ithelpdesk.statistics.dto.StatisticsGranularity;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
@@ -62,6 +63,26 @@ class StatisticsServiceImplTest {
         assertEquals(1, statistics.getFirst().resolvedTickets());
         assertEquals(1, statistics.getFirst().closedTickets());
         assertEquals(1, statistics.getFirst().overdueTickets());
+    }
+
+    @Test
+    void aggregatesMonthlyPeriodStatistics() {
+        User agent = user(2L, UserRole.AGENT);
+        LocalDateTime created = LocalDateTime.of(LocalDateTime.now().getYear(), 1, 10, 10, 0);
+        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
+        ticket.setResolvedAt(created.plusHours(20));
+        ticket.setClosedAt(created.plusHours(24));
+
+        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+
+        var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
+
+        assertEquals(12, statistics.buckets().size());
+        assertEquals(1, statistics.totalCreated());
+        assertEquals(1, statistics.totalResolved());
+        assertEquals(1, statistics.totalClosed());
+        assertEquals(20.0, statistics.averageResolutionHours());
+        assertEquals(1, statistics.buckets().getFirst().created());
     }
 
     private Ticket ticket(TicketStatus status, User assignee, LocalDateTime createdAt) {

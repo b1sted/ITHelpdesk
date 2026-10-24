@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../api/errorMessage';
 import {
   getAgentStatistics,
+  getPeriodStatistics,
   getSupportSettings,
   updateSupportSettings,
 } from '../api/statisticsApi';
@@ -15,6 +16,8 @@ import {
 import { TicketRequestList } from '../components/TicketRequestList';
 import type {
   AgentStatisticsResponse,
+  PeriodStatisticsResponse,
+  StatisticsGranularity,
   TicketRequestResponse,
   TicketRequestStatus,
 } from '../types/ticket';
@@ -26,6 +29,9 @@ export function StatisticsPage() {
   const [agents, setAgents] = useState<UserResponse[]>([]);
   const [autoCloseHours, setAutoCloseHours] = useState('0');
   const [autoCloseSaving, setAutoCloseSaving] = useState(false);
+  const [granularity, setGranularity] = useState<StatisticsGranularity>('MONTH');
+  const [period, setPeriod] = useState<PeriodStatisticsResponse | null>(null);
+  const [periodLoading, setPeriodLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -49,6 +55,19 @@ export function StatisticsPage() {
   }, []);
 
   useEffect(load, [load]);
+
+  const loadPeriod = useCallback(() => {
+    setPeriodLoading(true);
+    getPeriodStatistics(granularity)
+      .then((data) => {
+        setPeriod(data);
+        setError('');
+      })
+      .catch(() => setError('Не удалось загрузить статистику за период'))
+      .finally(() => setPeriodLoading(false));
+  }, [granularity]);
+
+  useEffect(loadPeriod, [loadPeriod]);
 
   const handleSaveAutoClose = async () => {
     const hours = Number(autoCloseHours);
@@ -113,6 +132,44 @@ export function StatisticsPage() {
         <p className="py-8 text-center text-sm text-slate-400">Загрузка...</p>
       ) : (
         <div className="space-y-6">
+          <section className="rounded-lg bg-white p-5 shadow">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-700">Динамика заявок</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Созданные, решённые и закрытые заявки по месяцам текущего года или по годам.
+                </p>
+              </div>
+              <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                <button
+                  onClick={() => setGranularity('MONTH')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    granularity === 'MONTH'
+                      ? 'bg-white text-slate-800 shadow'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  По месяцам
+                </button>
+                <button
+                  onClick={() => setGranularity('YEAR')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    granularity === 'YEAR'
+                      ? 'bg-white text-slate-800 shadow'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  По годам
+                </button>
+              </div>
+            </div>
+            {periodLoading || !period ? (
+              <p className="py-8 text-center text-sm text-slate-400">Загрузка...</p>
+            ) : (
+              <PeriodChart data={period} />
+            )}
+          </section>
+
           <section className="rounded-lg bg-white p-5 shadow">
             <h2 className="mb-1 text-sm font-semibold text-slate-700">
               Автозакрытие решённых заявок
@@ -218,6 +275,111 @@ export function StatisticsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function PeriodChart({ data }: { data: PeriodStatisticsResponse }) {
+  const max = Math.max(
+    1,
+    ...data.buckets.flatMap((bucket) => [bucket.created, bucket.resolved, bucket.closed]),
+  );
+
+  return (
+    <div>
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Metric label="Создано" value={data.totalCreated} accent="text-emerald-600" />
+        <Metric label="Решено" value={data.totalResolved} accent="text-sky-600" />
+        <Metric label="Закрыто" value={data.totalClosed} accent="text-slate-700" />
+        <Metric
+          label="Среднее решение"
+          value={`${data.averageResolutionHours} ч`}
+          accent="text-amber-600"
+        />
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="flex h-56 min-w-[520px] items-end gap-2">
+          {data.buckets.map((bucket) => (
+            <div key={bucket.label} className="flex flex-1 flex-col items-center gap-2">
+              <div className="flex h-44 w-full items-end justify-center gap-1">
+                <Bar
+                  value={bucket.created}
+                  max={max}
+                  label={`${bucket.label}: создано ${bucket.created}`}
+                  color="bg-emerald-500"
+                />
+                <Bar
+                  value={bucket.resolved}
+                  max={max}
+                  label={`${bucket.label}: решено ${bucket.resolved}`}
+                  color="bg-sky-500"
+                />
+                <Bar
+                  value={bucket.closed}
+                  max={max}
+                  label={`${bucket.label}: закрыто ${bucket.closed}`}
+                  color="bg-slate-500"
+                />
+              </div>
+              <span className="text-[10px] text-slate-500">{bucket.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
+        <Legend color="bg-emerald-500" label="Создано" />
+        <Legend color="bg-sky-500" label="Решено" />
+        <Legend color="bg-slate-500" label="Закрыто" />
+      </div>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number | string;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <div className="text-xs uppercase text-slate-400">{label}</div>
+      <div className={`text-xl font-semibold ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+function Bar({
+  value,
+  max,
+  label,
+  color,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  color: string;
+}) {
+  const height = value === 0 ? 0 : Math.max(4, Math.round((value / max) * 100));
+  return (
+    <div
+      title={label}
+      style={{ height: `${height}%` }}
+      className={`w-2.5 rounded-t ${color}`}
+    />
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className={`h-2 w-2 rounded-full ${color}`} />
+      {label}
+    </span>
   );
 }
 
