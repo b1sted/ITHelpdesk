@@ -402,9 +402,35 @@ class TicketServiceImplTest {
         verify(repository).findAllByOrderByCreatedAtDesc();
     }
 
+    @Test
+    void ticketsAreOrderedByStatusThenId() {
+        User manager = user(3L, UserRole.MANAGER);
+        User creator = user(1L, UserRole.EMPLOYEE);
+        List<Ticket> unsorted = List.of(
+                ticket(10L, TicketStatus.CLOSED, creator, null),
+                ticket(8L, TicketStatus.RESOLVED, creator, null),
+                ticket(6L, TicketStatus.ANSWERED, creator, null),
+                ticket(4L, TicketStatus.WAITING_USER, creator, null),
+                ticket(5L, TicketStatus.IN_PROGRESS, creator, null),
+                ticket(3L, TicketStatus.NEW, creator, null),
+                ticket(1L, TicketStatus.NEW, creator, null)
+        );
+        when(currentUser.get()).thenReturn(manager);
+        when(repository.findAllByOrderByCreatedAtDesc()).thenReturn(unsorted);
+
+        var tickets = service.getAllTickets(null);
+
+        assertEquals(List.of(1L, 3L, 5L, 4L, 6L, 8L, 10L),
+                tickets.stream().map(response -> response.id()).toList());
+    }
+
     private Ticket ticket(TicketStatus status, User creator, User assignee) {
+        return ticket(1L, status, creator, assignee);
+    }
+
+    private Ticket ticket(Long id, TicketStatus status, User creator, User assignee) {
         Ticket ticket = new Ticket();
-        setId(ticket, 1L);
+        setId(ticket, id);
         ticket.setTitle("Не работает почта");
         ticket.setDescription("Описание проблемы");
         ticket.setStatus(status);

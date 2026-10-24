@@ -1,6 +1,7 @@
 package ru.basted.ithelpdesk.ticket.service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -39,6 +40,9 @@ import ru.basted.ithelpdesk.user.entity.UserRole;
 public class TicketServiceImpl implements TicketService {
     private static final Set<TicketStatus> RESOLVABLE_STATUSES =
             Set.of(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_USER, TicketStatus.ANSWERED);
+    private static final Comparator<Ticket> LIST_ORDER =
+            Comparator.comparingInt((Ticket ticket) -> statusOrder(ticket.getStatus()))
+                    .thenComparing(Ticket::getId);
 
     private final TicketRepository repository;
     private final TicketDeadlineExtensionRepository extensionRepository;
@@ -98,6 +102,7 @@ public class TicketServiceImpl implements TicketService {
         };
 
         return tickets.stream()
+                .sorted(LIST_ORDER)
                 .map(ticket -> toResponse(ticket, false))
                 .toList();
     }
@@ -275,6 +280,17 @@ public class TicketServiceImpl implements TicketService {
         ticket.setResolvedAt(null);
         ticket.setClosedAt(null);
         return ticket;
+    }
+
+    private static int statusOrder(TicketStatus status) {
+        return switch (status) {
+            case NEW -> 1;
+            case IN_PROGRESS -> 2;
+            case WAITING_USER -> 3;
+            case ANSWERED -> 4;
+            case RESOLVED -> 5;
+            case CLOSED -> 6;
+        };
     }
 
     private void checkRule(boolean condition, String message) {
