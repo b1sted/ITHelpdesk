@@ -11,6 +11,7 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
@@ -40,6 +41,10 @@ public class Ticket extends BaseEntity {
 
     @Column(name = "extension_hours", nullable = false)
     private Integer extensionHours = 0;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "creator_id", nullable = false,

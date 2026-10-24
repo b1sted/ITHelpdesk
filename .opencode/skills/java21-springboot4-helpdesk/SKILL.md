@@ -147,6 +147,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 | Entity not found | `NotFoundException` | 404 |
 | Duplicate / invalid transition | `ConflictException` | 409 |
 | DB integrity violation | `DataIntegrityViolationException` | 409 |
+| Stale optimistic-lock update | `OptimisticLockingFailureException` | 409 |
 | Validation, unreadable body, wrong parameter type | handled in the handler | 400 |
 | Login attempt limit exceeded | `RateLimitExceededException` | 429 |
 
@@ -173,7 +174,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - `spring.jpa.open-in-view=false`. Consequence: lazy associations cannot be read outside a transaction. Either map to a DTO inside `@Transactional`, or load associations up front with `@EntityGraph(attributePaths = {...})` on repository methods (as in `TicketRepository`). This protects against `LazyInitializationException` and N+1.
 - Queries are derived query methods; for non-trivial ones use `@Query` with a text block. Do not pass an `Entity` from a repository to a controller.
 - Schema changes are made only through Flyway migrations in `src/main/resources/db/migration` (`spring-boot-starter-flyway` + `flyway-database-postgresql`); `spring.jpa.hibernate.ddl-auto=validate`. The baseline `V1` owns tables, constraints, indexes and reference data. `DBInitializer` only creates the admin account. Never add DDL, backfills or data repair to application code.
-- Concurrent operations (taking a ticket, deciding on a request) are currently unprotected: there is no `@Version`. Do not make it worse: when working in those places, propose optimistic locking or an atomic `UPDATE ... WHERE status = :expected`, catching the conflict as `409`.
+- `Ticket` and `TicketRequest` use `@Version` optimistic locking. Taking a ticket uses an atomic `UPDATE ... WHERE status = 'NEW'` that also checks the agent capacity. `ApiExceptionHandler` maps optimistic-lock failures to `409` with a Russian message.
 
 ## 9. MapStruct
 
@@ -231,7 +232,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
-- No `@Version`: races when taking a ticket, checking the limit and deciding on a request.
 - `LoginRateLimiter` keeps entries in memory without cleanup.
 - Email uniqueness is case-sensitive, login is not (`findByEmailIgnoreCase`).
 - Statistics load all tickets into memory — as data grows, an aggregating query is needed.

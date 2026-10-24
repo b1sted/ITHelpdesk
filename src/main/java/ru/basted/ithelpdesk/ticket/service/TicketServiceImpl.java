@@ -107,21 +107,24 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     public TicketResponse assignTicket(Long id) {
-        Ticket ticket = findTicket(id);
+        User agent = currentUser.get();
+        int limit = capacityPolicy.resolveLimit(agent);
 
-        if (ticket.getStatus() != TicketStatus.NEW) {
+        int claimed = repository.claimIfCapacityAvailable(id, agent.getId(), limit);
+        if (claimed == 0) {
+            Ticket ticket = findTicket(id);
+            if (ticket.getStatus() != TicketStatus.NEW) {
+                throw new ConflictException(
+                        "Нельзя взять в работу заявку в статусе %s".formatted(ticket.getStatus())
+                );
+            }
+            capacityPolicy.checkCanAssign(agent);
             throw new ConflictException(
-                    "Нельзя взять в работу заявку в статусе %s".formatted(ticket.getStatus())
+                    "Не удалось взять заявку в работу. Обновите данные и повторите действие"
             );
         }
 
-        User agent = currentUser.get();
-        capacityPolicy.checkCanAssign(agent);
-
-        ticket.setAssignee(agent);
-        ticket.setStatus(TicketStatus.IN_PROGRESS);
-
-        return toResponse(ticket, false);
+        return toResponse(findTicket(id), false);
     }
 
     @Override

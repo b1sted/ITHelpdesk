@@ -112,8 +112,9 @@ class TicketServiceImplTest {
     @Test
     void assignTicketSetsCurrentAgent() {
         User agent = user(2L, UserRole.AGENT);
-        Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
-        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        Ticket assigned = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(1);
+        when(repository.findById(1L)).thenReturn(Optional.of(assigned));
         when(currentUser.get()).thenReturn(agent);
 
         var response = service.assignTicket(1L);
@@ -127,6 +128,7 @@ class TicketServiceImplTest {
         User agent = user(2L, UserRole.AGENT);
         agent.setTicketLimit(1);
         Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        when(repository.claimIfCapacityAvailable(1L, 2L, 1)).thenReturn(0);
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(repository.countByAssigneeIdAndStatusIn(2L, AgentCapacityPolicy.ACTIVE_STATUSES))
                 .thenReturn(1L);
@@ -137,10 +139,22 @@ class TicketServiceImplTest {
     }
 
     @Test
+    void assignTicketFailsWhenStatusChangedConcurrently() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), user(3L, UserRole.AGENT));
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(0);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+
+        assertThrows(ConflictException.class, () -> service.assignTicket(1L));
+    }
+
+    @Test
     void assignedOldTicketIsMarkedOverdue() {
         User agent = user(2L, UserRole.AGENT);
-        Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
         ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(1);
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(currentUser.get()).thenReturn(agent);
 
