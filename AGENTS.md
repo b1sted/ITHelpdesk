@@ -57,7 +57,7 @@ A ticket is considered **overdue** when `now > due_at` and its status is one of 
 * `WAITING_USER` — Paused by the IT specialist pending user response/clarification.
 * `ANSWERED` — The author replied to a `WAITING_USER` ticket; awaiting the specialist again.
 * `RESOLVED` — Marked as fixed by the IT specialist; awaiting employee verification.
-* `CLOSED` — Final state; resolution confirmed by the author.
+* `CLOSED` — Final state; reached after the author confirms the resolution, the auto-close daemon fires, or the assignee specialist closes an active ticket that cannot be fulfilled (with a mandatory reason).
 
 ### State Transition & Authority Matrix:
 
@@ -76,10 +76,11 @@ A ticket is considered **overdue** when `now > due_at` and its status is one of 
 | **BP-11** | **Decide Ticket Request** | *Pending request* | *APPROVED / REJECTED* | `MANAGER`, `ADMIN` | Approving `RELEASE` clears `assignee_id` and sets `NEW`. Approving `REASSIGN` assigns the target agent (chosen by the requester or the manager) and sets `IN_PROGRESS` (target capacity is re-checked). Rejecting leaves the ticket unchanged. Every decision stores `decided_by_id`, `decided_at` and an optional `decision_comment`. |
 | **BP-12** | **Extend Deadline** | *Any active assigned* | *Unchanged* | `AGENT` (Assignee), `MANAGER`, `ADMIN` | Adds an immutable `ticket_deadline_extensions` row with the requested hours (1–720 in total) and a mandatory `reason`, then increments `tickets.extension_hours`. The deadline becomes `created_at + limit-hours + extension_hours`. |
 | **BP-13** | **Auto-Close Resolved** | `RESOLVED` | `CLOSED` | `SYSTEM_DAEMON` | When `support_settings.auto_close_resolved_hours > 0` and `resolved_at` is older than the configured window, sets `status = CLOSED` and `closed_at = now`. |
+| **BP-14** | **Close Unfulfillable Ticket** | `IN_PROGRESS`, `WAITING_USER`, `ANSWERED` | `CLOSED` | `AGENT` (Assignee) | Closes a ticket that cannot be fulfilled, bypassing author confirmation. Requires a mandatory `reason`; writes an immutable `ticket_closures` row with `closed_by_id` and `created_at`, then sets `status = CLOSED` and `closed_at = now` (`resolved_at` stays empty). |
 
 ---
 
-## 5. Relational Database Schema (8 Entities)
+## 5. Relational Database Schema (9 Entities)
 
 All tables must be normalized (3NF). Class names must be **singular**, and table names must be **plural**.
 
@@ -92,7 +93,8 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
  [ categories ]  1 ──────── N [ tickets ] 1 ───┘
                                   │
                                   ├── 1 ─── N [ ticket_requests ]
-                                  └── 1 ─── N [ ticket_deadline_extensions ]
+                                  ├── 1 ─── N [ ticket_deadline_extensions ]
+                                  └── 1 ─── N [ ticket_closures ]
 
  [ support_settings ] — singleton row with automation settings
 ```
@@ -161,7 +163,15 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
    * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
    * `created_by_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
 
-8. **`support_settings`**
+8. **`ticket_closures`**
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `reason`: `TEXT` (Not Null, mandatory justification from the agent)
+   * `created_at`: `TIMESTAMP` (Not Null)
+   * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
+   * `closed_by_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+   * The record is immutable and is exposed in `TicketResponse.closure`; tickets closed by the author or the daemon do not have a closure row.
+
+9. **`support_settings`**
    * `id`: `BIGINT` (Primary Key, Identity)
    * `auto_close_resolved_hours`: `INTEGER` (Not Null, default 0; 0 disables auto-closing)
 
@@ -211,7 +221,7 @@ ru.basted.ithelpdesk.<feature>/
 ### 6.4. Security & RBAC Conventions
 * Passwords must be encoded using `BCryptPasswordEncoder`.
 * Protect endpoints using declarative method security: `@PreAuthorize("hasRole('ADMIN')")`.
-* Ensure ownership checks: Only the creator of a ticket can confirm closing or reopening it.
+* Ensure ownership checks: Only the creator of a ticket can confirm closing or reopening it, while only the assignee specialist can close it as unfulfillable (BP-14).
 * **JWT filter registration:** `JwtAuthenticationFilter` is a `@Component`; its automatic servlet-container registration is disabled with a disabled `FilterRegistrationBean`, while the filter stays in the Spring Security chain.
 * **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists and derives granted authorities from the current database role (so role changes apply immediately), plus validates the token issuer.
 * **Email:** addresses are stored normalized (trim + lower-case) on create and update; a unique index on `lower(email)` enforces case-insensitive uniqueness and login remains case-insensitive.
@@ -219,6 +229,7 @@ ru.basted.ithelpdesk.<feature>/
 * **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
 * **Manager authority:** `ROLE_MANAGER` (displayed as **Руководитель**) and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents, change an agent's `ticket_limit` and `time_limit_hours`, extend ticket deadlines and manage support settings. Managers cannot claim tickets, change ticket statuses, or post messages.
 * **Agent capacity:** `AgentCapacityPolicy` enforces the per-agent active-ticket limit on claim and on approved reassignment. Counted statuses are `IN_PROGRESS`, `WAITING_USER`, `ANSWERED`.
+* **Agent closure:** the assignee `AGENT` can close an active ticket (`IN_PROGRESS`, `WAITING_USER`, `ANSWERED`) that cannot be fulfilled by sending `PATCH /tickets/{id}/status` with `status = CLOSED` and a mandatory `reason`. The service stores an immutable `ticket_closures` row, sets `closed_at` and leaves `resolved_at` empty. The author's `RESOLVED -> CLOSED` flow does not create a closure row.
 * **SLA:** each agent has a persisted non-null `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets only. `WAITING_USER` tickets are excluded from overdue detection.
 * **Deadline extension:** the assigned agent, a manager or an administrator can extend an active ticket by 1–720 hours in total with a mandatory reason. Every action is stored in `ticket_deadline_extensions` and increments `tickets.extension_hours`.
 * **Auto-closing:** `SYSTEM_DAEMON` runs every `app.ticket.auto-close-check-ms` (default 1 hour) and closes `RESOLVED` tickets older than `support_settings.auto_close_resolved_hours`; `0` disables it.
@@ -262,7 +273,7 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 | `GET` | `/tickets` | List tickets (with filters by status/role). `EMPLOYEE` receives only own tickets; `AGENT` receives tickets assigned to them plus unassigned `NEW` tickets; `MANAGER`/`ADMIN` receive all | Authenticated | `200 OK` |
 | `GET` | `/tickets/{id}` | Get full ticket details with messages. `EMPLOYEE` may read only own tickets; `AGENT`/`MANAGER`/`ADMIN` may read any ticket | Authenticated | `200 OK`, `404 Not Found` |
 | `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` (status or personal limit) |
-| `PATCH`| `/tickets/{id}/status` | Transition status (BP-4–8) | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request`, `409 Conflict` |
+| `PATCH`| `/tickets/{id}/status` | Transition status (BP-4–8). The assignee agent also closes an unfulfillable active ticket with a mandatory reason (BP-14); the author closes a `RESOLVED` ticket | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request` (including a missing closure reason), `409 Conflict` |
 | `PATCH`| `/tickets/{id}/deadline` | Extend the ticket deadline with a mandatory reason (BP-12) | `AGENT` (Assignee), `MANAGER`, `ADMIN` | `200 OK`, `400 Bad Request`, `409 Conflict` |
 
 ### 7.3. Messages
@@ -379,12 +390,13 @@ frontend/
    * Main section: full description and chronological `MessageThread`; right sidebar: ticket metadata (including `resolvedAt` / `closedAt` when present) and the deadline card.
    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` and a `MANAGER` see the whole thread in read-only mode.
    * Action panel adapts dynamically based on authenticated role and current ticket status:
-      * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`, and `[Продолжить работу]` / `[Решено]` if `status === 'ANSWERED'`. Action buttons are hidden if `status === 'RESOLVED'`.
+      * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]`, `[Решено]` and `[Закрыть заявку]` if `status === 'IN_PROGRESS'` (the pause button is absent for `WAITING_USER`), and `[Продолжить работу]` / `[Решено]` / `[Закрыть заявку]` if `status === 'ANSWERED'`. `[Закрыть заявку]` opens a dialog with a mandatory reason and is used when the ticket cannot be fulfilled. Action buttons are hidden if `status === 'RESOLVED'`.
       * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.
       * **Admin View (4c):** Read-only inspection of any ticket. No assign, status or message submission actions are shown; administrators can still decide pending requests and see overdue markers in the list.
       * **Manager View (4d):** Read-only ticket and thread inspection plus a request panel with `[Одобрить]` / `[Отклонить]` for pending requests. Managers never see message submission, assign or status controls.
    * An assigned `AGENT` on an active ticket sees a request panel to `[Отказаться от заявки]` or `[Переназначить специалисту]`. The agent must provide a mandatory justification and, for reassignment, choose another agent. While a `PENDING` request exists the form is replaced with a waiting notice.
    * An assigned `AGENT`, a `MANAGER` or an `ADMIN` can open the deadline extension dialog, enter 1–720 hours and a mandatory reason; the ticket then shows the extended `dueAt` and the full extension history.
+   * When a specialist closes an unfulfillable ticket, the mandatory reason and the specialist's name are shown in the ticket header and in the `История заявки` block (`closure` field of `TicketResponse`).
 5. **Screen 5 (Admin Console):** Accessible at `/admin` only to `ROLE_ADMIN`. Provides tabs for users, departments and categories, plus a shortcut back to the ticket list. Users can be created, edited (full name, email, department, role) and deleted; roles include `EMPLOYEE`, `AGENT`, `MANAGER` and `ADMIN`.
 6. **Screen 6 (Statistics):** Accessible at `/statistics` to `ROLE_MANAGER` and `ROLE_ADMIN`. Shows per-agent ticket and time limits, total/active/resolved/closed/overdue counts, inline limit editing, created/resolved/closed dynamics by month or year with average resolution time, the auto-close settings form, and the release/reassignment request queue with a pending/all-history filter and decision controls.
 
@@ -416,6 +428,13 @@ export interface TicketDeadlineExtensionResponse {
   createdBy: UserSummary;
 }
 
+export interface TicketClosureResponse {
+  id: number;
+  reason: string;
+  createdAt: string;
+  closedBy: UserSummary;
+}
+
 export interface TicketResponse {
   id: number;
   title: string;
@@ -432,6 +451,7 @@ export interface TicketResponse {
   extensionHours: number;
   deadlineExtensions: TicketDeadlineExtensionResponse[];
   messages: MessageResponse[];
+  closure: TicketClosureResponse | null;
 }
 ```
 

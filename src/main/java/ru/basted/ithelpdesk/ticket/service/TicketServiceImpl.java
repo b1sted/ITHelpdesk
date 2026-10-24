@@ -17,15 +17,18 @@ import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
 import ru.basted.ithelpdesk.message.dto.MessageResponse;
 import ru.basted.ithelpdesk.message.service.MessageService;
+import ru.basted.ithelpdesk.ticket.dto.TicketClosureResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
+import ru.basted.ithelpdesk.ticket.entity.TicketClosure;
 import ru.basted.ithelpdesk.ticket.entity.TicketDeadlineExtension;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
+import ru.basted.ithelpdesk.ticket.repository.TicketClosureRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketDeadlineExtensionRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.user.dto.UserSummary;
@@ -39,6 +42,7 @@ public class TicketServiceImpl implements TicketService {
 
     private final TicketRepository repository;
     private final TicketDeadlineExtensionRepository extensionRepository;
+    private final TicketClosureRepository closureRepository;
     private final TicketMapper mapper;
     private final CategoryRepository categoryRepository;
     private final MessageService messageService;
@@ -49,6 +53,7 @@ public class TicketServiceImpl implements TicketService {
     public TicketServiceImpl(
             TicketRepository repository,
             TicketDeadlineExtensionRepository extensionRepository,
+            TicketClosureRepository closureRepository,
             TicketMapper mapper,
             CategoryRepository categoryRepository,
             MessageService messageService,
@@ -58,6 +63,7 @@ public class TicketServiceImpl implements TicketService {
     ) {
         this.repository = repository;
         this.extensionRepository = extensionRepository;
+        this.closureRepository = closureRepository;
         this.mapper = mapper;
         this.categoryRepository = categoryRepository;
         this.messageService = messageService;
@@ -137,7 +143,7 @@ public class TicketServiceImpl implements TicketService {
         Ticket updated = switch (changeRequest.status()) {
             case WAITING_USER -> pauseTicket(ticket, user);
             case RESOLVED -> resolveTicket(ticket, user);
-            case CLOSED -> closeTicket(ticket, user);
+            case CLOSED -> closeTicket(ticket, user, changeRequest.reason());
             case IN_PROGRESS -> resumeOrReopenTicket(ticket, user, changeRequest.reason());
             case NEW -> throw new BadRequestException(
                     "Недопустимый целевой статус NEW для изменения заявки"
@@ -203,7 +209,11 @@ public class TicketServiceImpl implements TicketService {
         return ticket;
     }
 
-    private Ticket closeTicket(Ticket ticket, User user) {
+    private Ticket closeTicket(Ticket ticket, User user, String reason) {
+        if (user.getRole() == UserRole.AGENT) {
+            return closeTicketByAgent(ticket, user, reason);
+        }
+
         checkRule(ticket.getStatus() == TicketStatus.RESOLVED,
                 "Закрыть заявку можно только из статуса RESOLVED");
         checkOwnership(user, ticket.getCreator(),
@@ -211,6 +221,29 @@ public class TicketServiceImpl implements TicketService {
 
         ticket.setStatus(TicketStatus.CLOSED);
         ticket.setClosedAt(LocalDateTime.now());
+        return ticket;
+    }
+
+    private Ticket closeTicketByAgent(Ticket ticket, User agent, String reason) {
+        checkOwnership(agent, ticket.getAssignee(),
+                "Закрыть заявку может только назначенный исполнитель");
+        checkRule(AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()),
+                "Специалист может закрыть только активную заявку");
+        if (!StringUtils.hasText(reason)) {
+            throw new BadRequestException("Для закрытия заявки требуется причина");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        ticket.setStatus(TicketStatus.CLOSED);
+        ticket.setClosedAt(now);
+
+        TicketClosure closure = new TicketClosure();
+        closure.setReason(reason.trim());
+        closure.setCreatedAt(now);
+        closure.setTicket(ticket);
+        closure.setClosedBy(agent);
+        closureRepository.save(closure);
+
         return ticket;
     }
 
@@ -314,6 +347,11 @@ public class TicketServiceImpl implements TicketService {
                         .map(this::toExtensionResponse)
                         .toList()
                 : List.of();
+        TicketClosureResponse closure = withMessages
+                ? closureRepository.findFirstByTicketIdOrderByCreatedAtDesc(ticket.getId())
+                        .map(this::toClosureResponse)
+                        .orElse(null)
+                : null;
 
         LocalDateTime dueAt = TicketSlaPolicy.dueAt(ticket, overdueHours);
         boolean overdue = TicketSlaPolicy.isOverdue(ticket, overdueHours, LocalDateTime.now());
@@ -333,7 +371,8 @@ public class TicketServiceImpl implements TicketService {
                 ticket.getClosedAt(),
                 ticket.getExtensionHours(),
                 deadlineExtensions,
-                messages
+                messages,
+                closure
         );
     }
 
@@ -344,6 +383,15 @@ public class TicketServiceImpl implements TicketService {
                 extension.getReason(),
                 extension.getCreatedAt(),
                 toSummary(extension.getCreatedBy())
+        );
+    }
+
+    private TicketClosureResponse toClosureResponse(TicketClosure closure) {
+        return new TicketClosureResponse(
+                closure.getId(),
+                closure.getReason(),
+                closure.getCreatedAt(),
+                toSummary(closure.getClosedBy())
         );
     }
 

@@ -1,9 +1,9 @@
 package ru.basted.ithelpdesk.ticket.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +16,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,8 +32,10 @@ import ru.basted.ithelpdesk.message.service.MessageService;
 import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
+import ru.basted.ithelpdesk.ticket.entity.TicketClosure;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
+import ru.basted.ithelpdesk.ticket.repository.TicketClosureRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketDeadlineExtensionRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
@@ -45,6 +48,8 @@ class TicketServiceImplTest {
     private TicketRepository repository;
     @Mock
     private TicketDeadlineExtensionRepository extensionRepository;
+    @Mock
+    private TicketClosureRepository closureRepository;
     @Mock
     private TicketMapper mapper;
     @Mock
@@ -59,8 +64,8 @@ class TicketServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new TicketServiceImpl(
-                repository, extensionRepository, mapper, categoryRepository, messageService, currentUser,
-                new AgentCapacityPolicy(repository), 24
+                repository, extensionRepository, closureRepository, mapper, categoryRepository,
+                messageService, currentUser, new AgentCapacityPolicy(repository), 24
         );
     }
 
@@ -123,6 +128,95 @@ class TicketServiceImplTest {
                         1L, new TicketStatusChangeRequest(TicketStatus.RESOLVED, null)
                 )
         );
+    }
+
+    @Test
+    void assignedAgentClosesActiveTicketWithReason() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+
+        var response = service.changeStatus(
+                1L,
+                new TicketStatusChangeRequest(
+                        TicketStatus.CLOSED, "Оборудование не подлежит ремонту"
+                )
+        );
+
+        assertEquals(TicketStatus.CLOSED, response.status());
+        assertNotNull(ticket.getClosedAt());
+        ArgumentCaptor<TicketClosure> captor = ArgumentCaptor.forClass(TicketClosure.class);
+        verify(closureRepository).save(captor.capture());
+        TicketClosure closure = captor.getValue();
+        assertEquals("Оборудование не подлежит ремонту", closure.getReason());
+        assertEquals(2L, closure.getClosedBy().getId());
+        assertEquals(1L, closure.getTicket().getId());
+    }
+
+    @Test
+    void agentCannotCloseTicketWithoutReason() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.WAITING_USER, user(1L, UserRole.EMPLOYEE), agent);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+
+        assertThrows(
+                BadRequestException.class,
+                () -> service.changeStatus(
+                        1L, new TicketStatusChangeRequest(TicketStatus.CLOSED, "  ")
+                )
+        );
+        assertEquals(TicketStatus.WAITING_USER, ticket.getStatus());
+        verify(closureRepository, never()).save(any(TicketClosure.class));
+    }
+
+    @Test
+    void agentCannotCloseForeignTicket() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(user(3L, UserRole.AGENT));
+
+        assertThrows(
+                ConflictException.class,
+                () -> service.changeStatus(
+                        1L, new TicketStatusChangeRequest(TicketStatus.CLOSED, "Невозможно выполнить")
+                )
+        );
+        verify(closureRepository, never()).save(any(TicketClosure.class));
+    }
+
+    @Test
+    void agentCannotCloseResolvedTicket() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.RESOLVED, user(1L, UserRole.EMPLOYEE), agent);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+
+        assertThrows(
+                ConflictException.class,
+                () -> service.changeStatus(
+                        1L, new TicketStatusChangeRequest(TicketStatus.CLOSED, "Невозможно выполнить")
+                )
+        );
+        verify(closureRepository, never()).save(any(TicketClosure.class));
+    }
+
+    @Test
+    void authorClosesResolvedTicketWithoutClosureRecord() {
+        User author = user(1L, UserRole.EMPLOYEE);
+        Ticket ticket = ticket(TicketStatus.RESOLVED, author, user(2L, UserRole.AGENT));
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(author);
+
+        var response = service.changeStatus(
+                1L, new TicketStatusChangeRequest(TicketStatus.CLOSED, null)
+        );
+
+        assertEquals(TicketStatus.CLOSED, response.status());
+        assertNotNull(ticket.getClosedAt());
+        verify(closureRepository, never()).save(any(TicketClosure.class));
     }
 
     @Test

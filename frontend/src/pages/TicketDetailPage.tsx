@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Clock, Pause, Play, TriangleAlert, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, Clock, Pause, Play, TriangleAlert, X } from 'lucide-react';
 import { getErrorMessage } from '../api/errorMessage';
 import {
   addMessage,
@@ -51,6 +51,9 @@ export function TicketDetailPage() {
   const [extensionHours, setExtensionHours] = useState('24');
   const [extensionReason, setExtensionReason] = useState('');
   const [deadlineSubmitting, setDeadlineSubmitting] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeReason, setCloseReason] = useState('');
+  const [closeSubmitting, setCloseSubmitting] = useState(false);
 
   const isAgent = user?.role === 'AGENT';
   const isManager = user?.role === 'MANAGER';
@@ -136,6 +139,28 @@ export function TicketDetailPage() {
       });
       setReopenReason('');
     });
+
+  const handleAgentClose = async () => {
+    setActionError('');
+    if (!closeReason.trim()) {
+      setActionError('Укажите причину закрытия заявки');
+      return;
+    }
+    setCloseSubmitting(true);
+    try {
+      await changeTicketStatus(ticket.id, {
+        status: 'CLOSED',
+        reason: closeReason.trim(),
+      });
+      setCloseOpen(false);
+      setCloseReason('');
+      await refresh();
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, 'Не удалось закрыть заявку'));
+    } finally {
+      setCloseSubmitting(false);
+    }
+  };
 
   const handleAddMessage = async (text: string) => {
     setActionError('');
@@ -263,6 +288,18 @@ export function TicketDetailPage() {
           {ticket.description}
         </p>
 
+        {ticket.closure && (
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <p className="font-medium text-slate-800">
+              Заявка закрыта специалистом {ticket.closure.closedBy.fullName}
+            </p>
+            <p className="mt-1 whitespace-pre-wrap">{ticket.closure.reason}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {formatDateTime(ticket.closure.createdAt)}
+            </p>
+          </div>
+        )}
+
         {canSeeOverdue && ticket.overdue && (
           <div className="mt-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
             <TriangleAlert className="h-4 w-4 shrink-0" />
@@ -307,6 +344,7 @@ export function TicketDetailPage() {
               <AgentPanel
                 onAssign={handleAssign}
                 onStatus={handleStatus}
+                onClose={() => setCloseOpen(true)}
                 status={ticket.status}
               />
 
@@ -382,6 +420,7 @@ export function TicketDetailPage() {
           <TicketHistory
             requests={requests}
             extensions={canSeeOverdue ? ticket.deadlineExtensions : []}
+            closure={ticket.closure}
           />
         </main>
 
@@ -580,6 +619,66 @@ export function TicketDetailPage() {
         </div>
       )}
 
+      {closeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6"
+          onClick={() => !closeSubmitting && setCloseOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="agent-close-title"
+            className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="agent-close-title" className="text-base font-semibold text-slate-800">
+                  Закрыть заявку
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Заявка будет закрыта без подтверждения автором. Причина обязательна и
+                  сохранится в истории заявки.
+                </p>
+              </div>
+              <button
+                onClick={() => setCloseOpen(false)}
+                disabled={closeSubmitting}
+                className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                title="Закрыть"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <textarea
+                value={closeReason}
+                onChange={(event) => setCloseReason(event.target.value)}
+                rows={4}
+                placeholder="Почему заявку невозможно выполнить (обязательно)"
+                className="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setCloseOpen(false)}
+                  disabled={closeSubmitting}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleAgentClose}
+                  disabled={closeSubmitting}
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  {closeSubmitting ? 'Закрытие...' : 'Закрыть заявку'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {requestOpen && !pendingRequest && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6"
@@ -672,9 +771,10 @@ interface AgentPanelProps {
   status?: TicketStatus;
   onAssign?: () => Promise<void>;
   onStatus?: (status: 'WAITING_USER' | 'RESOLVED' | 'IN_PROGRESS') => Promise<void>;
+  onClose?: () => void;
 }
 
-function AgentPanel({ status, onAssign, onStatus }: AgentPanelProps) {
+function AgentPanel({ status, onAssign, onStatus, onClose }: AgentPanelProps) {
   if (status === 'NEW') {
     return (
       <div className="mt-3 flex flex-wrap gap-2">
@@ -716,6 +816,16 @@ function AgentPanel({ status, onAssign, onStatus }: AgentPanelProps) {
         <Check className="h-4 w-4" />
         Решено
       </button>
+      <button
+        onClick={onClose}
+        className="flex items-center gap-1 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+      >
+        <Ban className="h-4 w-4" />
+        Закрыть заявку
+      </button>
+      <p className="mt-2 w-full text-xs text-slate-400">
+        Закрывайте заявку, только если её невозможно выполнить: причина обязательна.
+      </p>
     </div>
   );
 }
