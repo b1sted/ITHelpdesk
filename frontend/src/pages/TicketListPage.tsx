@@ -5,6 +5,7 @@ import { getTickets } from '../api/ticketsApi';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import type { TicketResponse, TicketStatus } from '../types/ticket';
+import { formatDateOnly } from '../utils/formatDate';
 
 type Filter = 'ALL' | 'ACTIVE' | 'ARCHIVE' | TicketStatus;
 
@@ -34,21 +35,12 @@ function filterTickets(tickets: TicketResponse[], filter: Filter): TicketRespons
   }
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
-
 export function TicketListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const canSeeAllTickets =
     user?.role === 'AGENT' || user?.role === 'MANAGER' || user?.role === 'ADMIN';
-  const canSeeOverdue =
-    user?.role === 'AGENT' || user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const canSeeOverdue = canSeeAllTickets;
   const [tickets, setTickets] = useState<TicketResponse[]>([]);
   const [filter, setFilter] = useState<Filter>(canSeeAllTickets ? 'ALL' : 'ACTIVE');
   const [loading, setLoading] = useState(true);
@@ -165,7 +157,7 @@ export function TicketListPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{formatDate(ticket.createdAt)}</td>
+                  <td className="px-4 py-3 text-slate-500">{formatDateOnly(ticket.createdAt)}</td>
                 </tr>
                 );
               })}

@@ -10,7 +10,7 @@ export const tokenStorage = {
 
 const PROFILE_KEY = 'ithelpdesk_profile';
 
-export interface StoredProfile {
+interface StoredProfile {
   id: number;
   email: string;
   fullName: string;

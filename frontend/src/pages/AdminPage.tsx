@@ -328,7 +328,7 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
                         ))}
                       </select>
                     ) : (
-                      <span className="text-slate-700">{roleLabels[u.role] ?? u.role}</span>
+                      <span className="text-slate-700">{roleLabels[u.role]}</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
