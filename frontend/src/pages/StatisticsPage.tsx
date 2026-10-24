@@ -35,28 +35,51 @@ export function StatisticsPage() {
   const [periodError, setPeriodError] = useState('');
   const [requestStatus, setRequestStatus] = useState<TicketRequestStatus | 'ALL'>('PENDING');
   const [loading, setLoading] = useState(true);
+  const [requestsLoading, setRequestsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [requestError, setRequestError] = useState('');
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      getAgentStatistics(),
-      getTicketRequestsByStatus(requestStatus === 'ALL' ? undefined : requestStatus),
-      getAgents(),
-      getSupportSettings(),
-    ])
-      .then(([stats, requestList, agentList, settings]) => {
+  const loadOverview = useCallback((showLoader = true) => {
+    if (showLoader) {
+      setLoading(true);
+    }
+    return Promise.all([getAgentStatistics(), getAgents(), getSupportSettings()])
+      .then(([stats, agentList, settings]) => {
         setError('');
         setStatistics(stats);
-        setRequests(requestList);
         setAgents(agentList);
         setAutoCloseHours(String(settings.autoCloseResolvedHours));
       })
       .catch(() => setError('Не удалось загрузить статистику'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showLoader) {
+          setLoading(false);
+        }
+      });
+  }, []);
+
+  const loadRequests = useCallback(() => {
+    setRequestsLoading(true);
+    return getTicketRequestsByStatus(requestStatus === 'ALL' ? undefined : requestStatus)
+      .then((requestList) => {
+        setRequestError('');
+        setRequests(requestList);
+      })
+      .catch(() => setRequestError('Не удалось загрузить запросы'))
+      .finally(() => setRequestsLoading(false));
   }, [requestStatus]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    void loadOverview();
+  }, [loadOverview]);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
+
+  const handleLimitsSaved = useCallback(() => {
+    void loadOverview(false);
+  }, [loadOverview]);
 
   const loadPeriod = useCallback(() => {
     setPeriodLoading(true);
@@ -101,7 +124,7 @@ export function StatisticsPage() {
   ) => {
     try {
       await decideTicketRequest(requestId, { status, comment, targetAssigneeId });
-      load();
+      await Promise.all([loadOverview(false), loadRequests()]);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Не удалось сохранить решение по запросу'));
     }
@@ -260,10 +283,20 @@ export function StatisticsPage() {
                       </td>
                       <td className="px-3 py-2 text-slate-500">{agent.departmentName}</td>
                       <td className="px-3 py-2">
-                        <LimitEditor field="ticketLimit" agent={agent} onSaved={load} onError={setError} />
+                        <LimitEditor
+                          field="ticketLimit"
+                          agent={agent}
+                          onSaved={handleLimitsSaved}
+                          onError={setError}
+                        />
                       </td>
                       <td className="px-3 py-2">
-                        <LimitEditor field="timeLimitHours" agent={agent} onSaved={load} onError={setError} />
+                        <LimitEditor
+                          field="timeLimitHours"
+                          agent={agent}
+                          onSaved={handleLimitsSaved}
+                          onError={setError}
+                        />
                       </td>
                       <td className="px-3 py-2 text-slate-700">{agent.activeTickets}</td>
                       <td className="px-3 py-2 text-slate-700">{agent.resolvedTickets}</td>
@@ -323,12 +356,26 @@ export function StatisticsPage() {
                 </button>
               </div>
             </div>
-            <TicketRequestList
-              requests={requests}
-              agents={agents}
-              showTicket
-              onDecide={handleDecide}
-            />
+            {requestError && (
+              <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {requestError}
+              </p>
+            )}
+            {requestsLoading && requests.length === 0 ? (
+              <p className="py-2 text-sm text-slate-400">Загрузка...</p>
+            ) : (
+              <div
+                aria-busy={requestsLoading}
+                className={`transition-opacity ${requestsLoading ? 'opacity-60' : 'opacity-100'}`}
+              >
+                <TicketRequestList
+                  requests={requests}
+                  agents={agents}
+                  showTicket
+                  onDecide={handleDecide}
+                />
+              </div>
+            )}
           </section>
         </div>
       )}
