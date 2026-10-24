@@ -54,5 +54,9 @@ public record TicketResponse(
     List<TicketDeadlineExtensionResponse> deadlineExtensions,
 
     @Schema(description = "Сообщения по заявке, перечисленные в хронологическом порядке")
-    List<MessageResponse> messages
+    List<MessageResponse> messages,
+
+    @Schema(description = "Сведения о закрытии заявки специалистом, если заявку нельзя выполнить",
+            nullable = true)
+    TicketClosureResponse closure
 ) {}

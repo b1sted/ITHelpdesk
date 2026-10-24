@@ -60,6 +60,7 @@ public interface TicketAPI {
               "closedAt": null,
               "extensionHours": 0,
               "deadlineExtensions": [],
+              "closure": null,
               "messages": [
                 {
                   "id": 1,
@@ -80,6 +81,7 @@ public interface TicketAPI {
     String ERROR_404_TICKET_JSON = "{\"message\":\"Не найдена заявка с ID 99\"}";
     String ERROR_404_CATEGORY_JSON = "{\"message\":\"Не найдена категория с ID 99\"}";
     String ERROR_400_JSON = "{\"message\":\"Заголовок заявки не может быть пустым\"}";
+    String ERROR_400_CLOSE_REASON_JSON = "{\"message\":\"Для закрытия заявки требуется причина\"}";
     String ERROR_409_JSON = "{\"message\":\"Нельзя взять в работу заявку в статусе RESOLVED\"}";
     String ERROR_409_STATUS_JSON = "{\"message\":\"Закрыть заявку можно только из статуса RESOLVED\"}";
 
@@ -192,17 +194,24 @@ public interface TicketAPI {
 
     @Operation(
             summary = "Изменить статус заявки",
-            description = "Перевод заявки в новый статус: приостановка, решение, закрытие или возврат на доработку"
+            description = "Перевод заявки в новый статус: приостановка, решение, закрытие или возврат на доработку. "
+                    + "Автор закрывает решённую заявку; назначенный специалист может закрыть активную заявку, "
+                    + "которую невозможно выполнить, указав обязательную причину"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Статус заявки успешно изменён",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = TicketResponse.class),
                             examples = @ExampleObject(value = TICKET_JSON))),
-            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса или недопустимый целевой статус",
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса, "
+                    + "недопустимый целевой статус или отсутствует причина закрытия специалистом",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = ERROR_400_JSON))),
+                            examples = {
+                                    @ExampleObject(name = "Некорректные данные", value = ERROR_400_JSON),
+                                    @ExampleObject(name = "Нет причины закрытия",
+                                            value = ERROR_400_CLOSE_REASON_JSON)
+                            })),
             @ApiResponse(responseCode = "404",
                     description = "Заявка не найдена или ресурс скрыт",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
