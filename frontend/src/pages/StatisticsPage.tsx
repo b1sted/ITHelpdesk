@@ -169,23 +169,39 @@ export function StatisticsPage() {
                 </button>
               </div>
             </div>
-            {periodLoading ? (
-              <p className="py-8 text-center text-sm text-slate-400">Загрузка...</p>
-            ) : periodError ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-red-600">{periodError}</p>
-                <button
-                  onClick={loadPeriod}
-                  className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            <div className="relative min-h-[19rem]">
+              {period && (
+                <div
+                  aria-busy={periodLoading}
+                  className={`transition-opacity ${periodLoading ? 'opacity-60' : 'opacity-100'}`}
                 >
-                  Повторить
-                </button>
-              </div>
-            ) : !period ? (
-              <p className="py-8 text-center text-sm text-slate-400">Данных пока нет.</p>
-            ) : (
-              <PeriodChart data={period} />
-            )}
+                  <PeriodChart data={period} />
+                </div>
+              )}
+              {periodLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="rounded-md bg-white/90 px-3 py-1.5 text-sm text-slate-500 shadow-sm">
+                    Загрузка...
+                  </p>
+                </div>
+              )}
+              {!periodLoading && periodError && (
+                <div className="flex min-h-[19rem] flex-col items-center justify-center">
+                  <p className="text-sm text-red-600">{periodError}</p>
+                  <button
+                    onClick={loadPeriod}
+                    className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Повторить
+                  </button>
+                </div>
+              )}
+              {!periodLoading && !periodError && !period && (
+                <p className="flex min-h-[19rem] items-center justify-center text-sm text-slate-400">
+                  Данных пока нет.
+                </p>
+              )}
+            </div>
           </section>
 
           <section className="rounded-lg bg-white p-5 shadow">
