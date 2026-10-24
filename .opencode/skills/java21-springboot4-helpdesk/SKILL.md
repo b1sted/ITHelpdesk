@@ -196,6 +196,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Parameters go in `application.properties` as `${ENV_VAR:default}`; in code use `@Value("${app.xxx:default}")` in the constructor. Add a new property with the `app.` prefix together with an environment variable, and if needed to `.env.example` and `docker-compose*.yml`, and mention it in `AGENTS.md`.
 - Do not hardcode or log secrets. The default `JWT_SECRET` and the seeded admin password are acceptable only for local development.
 - Scheduler: `@EnableScheduling` on `Application`, tasks are `@Scheduled(fixedDelayString = "${…}")` + `@Transactional` in a service (`TicketAutoCloseService`). Move intervals into properties.
+- Login rate limiting: `LoginRateLimiter` removes expired windows through `@Scheduled` (`app.rate-limit.cleanup-ms`, env `RATE_LIMIT_CLEANUP_MS`). Keep the map bounded when adding new keys.
 - Flyway: migrations run at startup. `spring.flyway.baseline-on-migrate=true` and `spring.flyway.baseline-version=1` let an already upgraded production database be baselined without re-running `V1`. Never edit an applied migration; add a new one.
 - Swagger: `/swagger-ui.html` and `/v3/api-docs` are public paths; common OpenAPI settings live in `OpenApiConfig` (the `BearerAuth` scheme).
 
@@ -233,7 +234,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
-- `LoginRateLimiter` keeps entries in memory without cleanup.
 - Statistics load all tickets into memory — as data grows, an aggregating query is needed.
 - `IllegalArgumentException` as a whole turns into 400 — a dedicated domain exception would be better.
 - `JwtAuthenticationFilter` is a `@Component` filter, which Boot also registers in the servlet container.
