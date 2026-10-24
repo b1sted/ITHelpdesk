@@ -11,8 +11,10 @@ import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestStatus;
 
 public interface TicketRequestRepository extends JpaRepository<TicketRequest, Long> {
     @Override
-    @EntityGraph(attributePaths = {"ticket", "requester", "requester.department",
-            "targetAssignee", "targetAssignee.department", "decidedBy", "decidedBy.department"})
+    @EntityGraph(attributePaths = {"ticket", "ticket.assignee", "ticket.creator",
+            "ticket.category", "ticket.assignee.department", "ticket.creator.department",
+            "requester", "requester.department", "targetAssignee", "targetAssignee.department",
+            "decidedBy", "decidedBy.department"})
     Optional<TicketRequest> findById(Long id);
 
     @EntityGraph(attributePaths = {"ticket", "requester", "requester.department",

@@ -9,4 +9,6 @@ public interface MessageService {
     MessageResponse addMessage(Long ticketId, MessageCreateRequest createRequest);
 
     List<MessageResponse> getMessagesByTicket(Long ticketId);
+
+    List<MessageResponse> getMessagesForTicket(Long ticketId);
 }

@@ -121,7 +121,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setAssignee(agent);
         ticket.setStatus(TicketStatus.IN_PROGRESS);
 
-        return toResponse(repository.save(ticket), false);
+        return toResponse(ticket, false);
     }
 
     @Override
@@ -141,7 +141,7 @@ public class TicketServiceImpl implements TicketService {
             default -> throw new IllegalArgumentException("Новый статус заявки обязателен");
         };
 
-        return toResponse(repository.save(updated), false);
+        return toResponse(updated, false);
     }
 
     @Override
@@ -174,7 +174,7 @@ public class TicketServiceImpl implements TicketService {
         extensionRepository.save(extension);
 
         ticket.setExtensionHours(totalExtension);
-        return toResponse(repository.save(ticket), true);
+        return toResponse(ticket, true);
     }
 
     private Ticket pauseTicket(Ticket ticket, User user) {
@@ -302,7 +302,7 @@ public class TicketServiceImpl implements TicketService {
                 : toSummary(ticket.getAssignee());
 
         List<MessageResponse> messages = withMessages
-                ? messageService.getMessagesByTicket(ticket.getId())
+                ? messageService.getMessagesForTicket(ticket.getId())
                 : List.of();
         List<TicketDeadlineExtensionResponse> deadlineExtensions = withMessages
                 ? extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(ticket.getId())

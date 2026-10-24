@@ -48,8 +48,7 @@ class TicketAutoCloseServiceTest {
         assertEquals(TicketStatus.CLOSED, expired.getStatus());
         assertNotNull(expired.getClosedAt());
         assertEquals(TicketStatus.RESOLVED, recent.getStatus());
-        verify(ticketRepository).save(expired);
-        verify(ticketRepository, never()).save(recent);
+        verify(ticketRepository, never()).save(org.mockito.ArgumentMatchers.any(Ticket.class));
     }
 
     @Test

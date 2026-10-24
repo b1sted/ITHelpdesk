@@ -49,7 +49,6 @@ public class TicketAutoCloseService {
             if (!resolvedAt.isAfter(cutoff)) {
                 ticket.setStatus(TicketStatus.CLOSED);
                 ticket.setClosedAt(now);
-                ticketRepository.save(ticket);
             }
         }
     }

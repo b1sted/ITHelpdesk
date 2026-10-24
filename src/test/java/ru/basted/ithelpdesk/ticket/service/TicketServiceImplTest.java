@@ -68,7 +68,6 @@ class TicketServiceImplTest {
         User author = user(1L, UserRole.EMPLOYEE);
         Ticket ticket = ticket(TicketStatus.RESOLVED, author, user(2L, UserRole.AGENT));
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
-        when(repository.save(ticket)).thenReturn(ticket);
         when(currentUser.get()).thenReturn(author);
 
         var response = service.changeStatus(
@@ -115,7 +114,6 @@ class TicketServiceImplTest {
         User agent = user(2L, UserRole.AGENT);
         Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
-        when(repository.save(ticket)).thenReturn(ticket);
         when(currentUser.get()).thenReturn(agent);
 
         var response = service.assignTicket(1L);
@@ -144,7 +142,6 @@ class TicketServiceImplTest {
         Ticket ticket = ticket(TicketStatus.NEW, user(1L, UserRole.EMPLOYEE), null);
         ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
-        when(repository.save(ticket)).thenReturn(ticket);
         when(currentUser.get()).thenReturn(agent);
 
         var response = service.assignTicket(1L);
@@ -159,7 +156,7 @@ class TicketServiceImplTest {
         ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(currentUser.get()).thenReturn(agent);
-        when(messageService.getMessagesByTicket(1L)).thenReturn(List.of());
+        when(messageService.getMessagesForTicket(1L)).thenReturn(List.of());
         when(extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 
         var response = service.getTicketDetails(1L);
@@ -173,7 +170,6 @@ class TicketServiceImplTest {
         Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(currentUser.get()).thenReturn(agent);
-        when(repository.save(ticket)).thenReturn(ticket);
         when(extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 
         var response = service.extendDeadline(
@@ -230,7 +226,7 @@ class TicketServiceImplTest {
         Ticket ticket = ticket(TicketStatus.NEW, author, null);
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(currentUser.get()).thenReturn(author);
-        when(messageService.getMessagesByTicket(1L)).thenReturn(List.of());
+        when(messageService.getMessagesForTicket(1L)).thenReturn(List.of());
         when(extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 
         var response = service.getTicketDetails(1L);
