@@ -103,3 +103,21 @@ export interface AgentStatisticsResponse {
 export interface SupportSettingsResponse {
   autoCloseResolvedHours: number;
 }
+
+export type StatisticsGranularity = 'MONTH' | 'YEAR';
+
+export interface PeriodBucketResponse {
+  label: string;
+  created: number;
+  resolved: number;
+  closed: number;
+}
+
+export interface PeriodStatisticsResponse {
+  granularity: StatisticsGranularity;
+  buckets: PeriodBucketResponse[];
+  totalCreated: number;
+  totalResolved: number;
+  totalClosed: number;
+  averageResolutionHours: number;
+}
