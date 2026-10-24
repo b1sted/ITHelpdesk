@@ -174,6 +174,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Enums use `@Enumerated(EnumType.STRING)` with a `length`. Time is `LocalDateTime`, columns like `created_at`.
 - `spring.jpa.open-in-view=false`. Consequence: lazy associations cannot be read outside a transaction. Either map to a DTO inside `@Transactional`, or load associations up front with `@EntityGraph(attributePaths = {...})` on repository methods (as in `TicketRepository`). This protects against `LazyInitializationException` and N+1.
 - Queries are derived query methods; for non-trivial ones use `@Query` with a text block. Do not pass an `Entity` from a repository to a controller.
+- Statistics are aggregated in the database (`GROUP BY`/`COUNT`/projections), never by loading whole tables into memory.
 - Schema changes are made only through Flyway migrations in `src/main/resources/db/migration` (`spring-boot-starter-flyway` + `flyway-database-postgresql`); `spring.jpa.hibernate.ddl-auto=validate`. The baseline `V1` owns tables, constraints, indexes and reference data. `DBInitializer` only creates the admin account. Never add DDL, backfills or data repair to application code.
 - `Ticket` and `TicketRequest` use `@Version` optimistic locking. Taking a ticket uses an atomic `UPDATE ... WHERE status = 'NEW'` that also checks the agent capacity. `ApiExceptionHandler` maps optimistic-lock failures to `409` with a Russian message.
 
@@ -234,7 +235,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
-- Statistics load all tickets into memory — as data grows, an aggregating query is needed.
 - `IllegalArgumentException` as a whole turns into 400 — a dedicated domain exception would be better.
 - `JwtAuthenticationFilter` is a `@Component` filter, which Boot also registers in the servlet container.
 

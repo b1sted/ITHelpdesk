@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.statistics.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -16,13 +17,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.statistics.dto.StatisticsGranularity;
-import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
+import ru.basted.ithelpdesk.ticket.repository.AgentOverdueCounts;
+import ru.basted.ithelpdesk.ticket.repository.AgentTicketCounts;
+import ru.basted.ithelpdesk.ticket.repository.PeriodTicketCounts;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
+import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
@@ -38,7 +41,7 @@ class StatisticsServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new StatisticsServiceImpl(userRepository, ticketRepository, 24);
+        service = new StatisticsServiceImpl(userRepository, ticketRepository);
     }
 
     @Test
@@ -49,12 +52,11 @@ class StatisticsServiceImplTest {
 
         when(userRepository.findAllByRoleOrderByFullNameAsc(UserRole.AGENT))
                 .thenReturn(List.of(agent));
-        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(
-                ticket(TicketStatus.IN_PROGRESS, agent, LocalDateTime.now().minusHours(30)),
-                ticket(TicketStatus.WAITING_USER, agent, LocalDateTime.now().minusHours(30)),
-                ticket(TicketStatus.RESOLVED, agent, LocalDateTime.now().minusHours(30)),
-                ticket(TicketStatus.CLOSED, agent, LocalDateTime.now().minusHours(1))
-        ));
+        when(ticketRepository.countTicketsByAssignee(
+                AgentCapacityPolicy.ACTIVE_STATUSES, TicketStatus.RESOLVED, TicketStatus.CLOSED
+        )).thenReturn(List.of(agentCounts(2L, 4, 2, 1, 1)));
+        when(ticketRepository.countOverdueTicketsByAssignee(any(LocalDateTime.class)))
+                .thenReturn(List.of(overdueCounts(2L, 1)));
 
         var statistics = service.getAgentStatistics();
 
@@ -70,14 +72,11 @@ class StatisticsServiceImplTest {
 
     @Test
     void aggregatesMonthlyPeriodStatisticsFromFirstActivity() {
-        User agent = user(2L, UserRole.AGENT);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime created = LocalDateTime.of(now.getYear(), 1, 10, 10, 0);
-        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
-        ticket.setResolvedAt(created.plusHours(20));
-        ticket.setClosedAt(created.plusHours(24));
-
-        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+        LocalDateTime resolved = created.plusHours(20);
+        LocalDateTime closed = created.plusHours(24);
+        stubPeriodStatistics(created, resolved, closed, 20.0, "month");
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
 
@@ -91,15 +90,11 @@ class StatisticsServiceImplTest {
 
     @Test
     void distributesMonthlyStatisticsAcrossCorrectMonths() {
-        User agent = user(2L, UserRole.AGENT);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime created = LocalDateTime.of(now.getYear(), 1, 10, 10, 0);
         LocalDateTime resolved = now.withDayOfMonth(10).withHour(15).withMinute(0).withSecond(0).withNano(0);
-        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
-        ticket.setResolvedAt(resolved);
-        ticket.setClosedAt(resolved.plusHours(4));
-
-        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+        LocalDateTime closed = resolved.plusHours(4);
+        stubPeriodStatistics(created, resolved, closed, 20.0, "month");
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
 
@@ -111,16 +106,13 @@ class StatisticsServiceImplTest {
 
     @Test
     void spansSeveralYearsInMonthlyStatistics() {
-        User agent = user(2L, UserRole.AGENT);
         LocalDateTime now = LocalDateTime.now();
         YearMonth currentMonth = YearMonth.from(now);
         YearMonth firstMonth = currentMonth.minusMonths(13);
         LocalDateTime created = firstMonth.atDay(10).atTime(10, 0);
-        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
-        ticket.setResolvedAt(created.plusHours(20));
-        ticket.setClosedAt(created.plusHours(24));
-
-        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+        LocalDateTime resolved = created.plusHours(20);
+        LocalDateTime closed = created.plusHours(24);
+        stubPeriodStatistics(created, resolved, closed, 20.0, "month");
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
 
@@ -133,15 +125,12 @@ class StatisticsServiceImplTest {
 
     @Test
     void anchorsYearStatisticsToFirstActivityYear() {
-        User agent = user(2L, UserRole.AGENT);
         int currentYear = LocalDateTime.now().getYear();
         int firstYear = currentYear - 5;
         LocalDateTime created = LocalDateTime.of(firstYear, 6, 10, 10, 0);
-        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
-        ticket.setResolvedAt(created.plusHours(20));
-        ticket.setClosedAt(created.plusHours(24));
-
-        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+        LocalDateTime resolved = created.plusHours(20);
+        LocalDateTime closed = created.plusHours(24);
+        stubPeriodStatistics(created, resolved, closed, 20.0, "year");
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.YEAR);
 
@@ -153,14 +142,11 @@ class StatisticsServiceImplTest {
 
     @Test
     void padsNewYearStatisticsWithFourFutureYears() {
-        User agent = user(2L, UserRole.AGENT);
         int currentYear = LocalDateTime.now().getYear();
         LocalDateTime created = LocalDateTime.of(currentYear, 6, 10, 10, 0);
-        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
-        ticket.setResolvedAt(created.plusHours(20));
-        ticket.setClosedAt(created.plusHours(24));
-
-        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+        LocalDateTime resolved = created.plusHours(20);
+        LocalDateTime closed = created.plusHours(24);
+        stubPeriodStatistics(created, resolved, closed, 20.0, "year");
 
         var statistics = service.getPeriodStatistics(StatisticsGranularity.YEAR);
 
@@ -169,16 +155,101 @@ class StatisticsServiceImplTest {
         assertEquals(String.valueOf(currentYear + 4), statistics.buckets().getLast().label());
     }
 
-    private Ticket ticket(TicketStatus status, User assignee, LocalDateTime createdAt) {
-        Ticket ticket = new Ticket();
-        ticket.setTitle("Заявка");
-        ticket.setDescription("Описание");
-        ticket.setStatus(status);
-        ticket.setCreatedAt(createdAt);
-        ticket.setAssignee(assignee);
-        ticket.setCreator(assignee);
-        ticket.setCategory(new Category());
-        return ticket;
+    @Test
+    void returnsEmptyMonthlyStatisticsWhenThereAreNoTickets() {
+        when(ticketRepository.findFirstCreatedAt()).thenReturn(null);
+        when(ticketRepository.countCreatedByPeriod("month")).thenReturn(List.of());
+        when(ticketRepository.countResolvedByPeriod("month")).thenReturn(List.of());
+        when(ticketRepository.countClosedByPeriod("month")).thenReturn(List.of());
+        when(ticketRepository.averageResolutionHours(any(), any())).thenReturn(null);
+
+        var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
+
+        assertEquals(12, statistics.buckets().size());
+        assertEquals(0, statistics.totalCreated());
+        assertEquals(0, statistics.totalResolved());
+        assertEquals(0, statistics.totalClosed());
+        assertEquals(0.0, statistics.averageResolutionHours());
+    }
+
+    private void stubPeriodStatistics(
+            LocalDateTime created,
+            LocalDateTime resolved,
+            LocalDateTime closed,
+            double averageHours,
+            String unit
+    ) {
+        when(ticketRepository.findFirstCreatedAt()).thenReturn(created);
+        when(ticketRepository.countCreatedByPeriod(unit))
+                .thenReturn(List.of(periodCounts(created, 1)));
+        when(ticketRepository.countResolvedByPeriod(unit))
+                .thenReturn(List.of(periodCounts(resolved, 1)));
+        when(ticketRepository.countClosedByPeriod(unit))
+                .thenReturn(List.of(periodCounts(closed, 1)));
+        when(ticketRepository.averageResolutionHours(any(), any())).thenReturn(averageHours);
+    }
+
+    private AgentTicketCounts agentCounts(
+            Long agentId,
+            long total,
+            long active,
+            long resolved,
+            long closed
+    ) {
+        return new AgentTicketCounts() {
+            @Override
+            public Long getAgentId() {
+                return agentId;
+            }
+
+            @Override
+            public long getTotal() {
+                return total;
+            }
+
+            @Override
+            public long getActive() {
+                return active;
+            }
+
+            @Override
+            public long getResolved() {
+                return resolved;
+            }
+
+            @Override
+            public long getClosed() {
+                return closed;
+            }
+        };
+    }
+
+    private AgentOverdueCounts overdueCounts(Long agentId, long overdue) {
+        return new AgentOverdueCounts() {
+            @Override
+            public Long getAgentId() {
+                return agentId;
+            }
+
+            @Override
+            public long getOverdue() {
+                return overdue;
+            }
+        };
+    }
+
+    private PeriodTicketCounts periodCounts(LocalDateTime bucket, long total) {
+        return new PeriodTicketCounts() {
+            @Override
+            public LocalDateTime getBucket() {
+                return bucket;
+            }
+
+            @Override
+            public long getTotal() {
+                return total;
+            }
+        };
     }
 
     private User user(Long id, UserRole role) {
