@@ -440,3 +440,5 @@ export interface TicketResponse {
 * **Build backend archive:** `./gradlew build -x test`
 * **Run frontend dev server:** `cd frontend && npm run dev`
 * **Build frontend for production:** `cd frontend && npm run build`
+* **Run the production stack:** `docker compose --env-file .env -f docker-compose.prod.yml up -d --build` (nginx serves the SPA and proxies `/api`, Swagger UI and OpenAPI docs to the backend).
+* **SPA cache policy:** the production nginx serves `index.html` with `Cache-Control: no-store` and hashed `/assets/*` files with a 30-day immutable cache, so a rebuilt frontend (including the statistics screen) is picked up on the next navigation instead of a stale cached bundle.
