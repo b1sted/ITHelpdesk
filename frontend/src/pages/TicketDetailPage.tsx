@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, TriangleAlert, X } from 'lucide-react';
 import { getErrorMessage } from '../api/errorMessage';
 import {
   addMessage,
@@ -52,6 +52,7 @@ export function TicketDetailPage() {
   const [requestType, setRequestType] = useState<TicketRequestType>('RELEASE');
   const [requestReason, setRequestReason] = useState('');
   const [requestTarget, setRequestTarget] = useState('');
+  const [requestOpen, setRequestOpen] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
 
   const isAgent = user?.role === 'AGENT';
@@ -169,6 +170,7 @@ export function TicketDetailPage() {
       });
       setRequestReason('');
       setRequestTarget('');
+      setRequestOpen(false);
       await refresh();
     } catch (err: unknown) {
       setActionError(getErrorMessage(err, 'Не удалось создать запрос'));
@@ -308,7 +310,52 @@ export function TicketDetailPage() {
                 Запрос уже отправлен и ожидает решения руководителя.
               </p>
             ) : (
-              <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => setRequestOpen(true)}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                >
+                  Запрос руководителю
+                </button>
+                <span className="text-xs text-slate-400">
+                  Отказ от заявки или передача другому специалисту
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {requestOpen && !pendingRequest && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6"
+            onClick={() => !requestSubmitting && setRequestOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ticket-request-title"
+              className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h2 id="ticket-request-title" className="text-base font-semibold text-slate-800">
+                    Запрос руководителю
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Руководитель рассмотрит запрос и примет решение по заявке #{ticket.id}.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setRequestOpen(false)}
+                  disabled={requestSubmitting}
+                  className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                  title="Закрыть"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                   <select
                     value={requestType}
@@ -338,19 +385,28 @@ export function TicketDetailPage() {
                 <textarea
                   value={requestReason}
                   onChange={(event) => setRequestReason(event.target.value)}
-                  rows={3}
+                  rows={4}
                   placeholder="Обоснование для руководителя (обязательно)"
                   className="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                 />
-                <button
-                  onClick={handleCreateRequest}
-                  disabled={requestSubmitting}
-                  className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
-                >
-                  {requestSubmitting ? 'Отправка...' : 'Отправить запрос'}
-                </button>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setRequestOpen(false)}
+                    disabled={requestSubmitting}
+                    className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={handleCreateRequest}
+                    disabled={requestSubmitting}
+                    className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {requestSubmitting ? 'Отправка...' : 'Отправить запрос'}
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         )}
 
