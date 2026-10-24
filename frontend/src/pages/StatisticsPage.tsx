@@ -32,6 +32,7 @@ export function StatisticsPage() {
   const [granularity, setGranularity] = useState<StatisticsGranularity>('MONTH');
   const [period, setPeriod] = useState<PeriodStatisticsResponse | null>(null);
   const [periodLoading, setPeriodLoading] = useState(true);
+  const [periodError, setPeriodError] = useState('');
   const [requestStatus, setRequestStatus] = useState<TicketRequestStatus | 'ALL'>('PENDING');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,12 +60,16 @@ export function StatisticsPage() {
 
   const loadPeriod = useCallback(() => {
     setPeriodLoading(true);
+    setPeriodError('');
     getPeriodStatistics(granularity)
       .then((data) => {
         setPeriod(data);
         setError('');
       })
-      .catch(() => setError('Не удалось загрузить статистику за период'))
+      .catch(() => {
+        setPeriod(null);
+        setPeriodError('Не удалось загрузить статистику по заявкам');
+      })
       .finally(() => setPeriodLoading(false));
   }, [granularity]);
 
@@ -164,8 +169,20 @@ export function StatisticsPage() {
                 </button>
               </div>
             </div>
-            {periodLoading || !period ? (
+            {periodLoading ? (
               <p className="py-8 text-center text-sm text-slate-400">Загрузка...</p>
+            ) : periodError ? (
+              <div className="py-8 text-center">
+                <p className="text-sm text-red-600">{periodError}</p>
+                <button
+                  onClick={loadPeriod}
+                  className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                >
+                  Повторить
+                </button>
+              </div>
+            ) : !period ? (
+              <p className="py-8 text-center text-sm text-slate-400">Данных пока нет.</p>
             ) : (
               <PeriodChart data={period} />
             )}
