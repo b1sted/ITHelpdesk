@@ -1,22 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Send } from 'lucide-react';
 import type { MessageResponse } from '../types/ticket';
+import { formatDateTime } from '../utils/formatDate';
 
 interface MessageThreadProps {
   messages: MessageResponse[];
   onAddMessage: (text: string) => Promise<void>;
   canMessage?: boolean;
   messageHint?: string;
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 export function MessageThread({
@@ -55,7 +46,7 @@ export function MessageThread({
           <div key={message.id} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-medium text-slate-800">{message.author.fullName}</span>
-              <span className="text-xs text-slate-400">{formatDate(message.createdAt)}</span>
+              <span className="text-xs text-slate-400">{formatDateTime(message.createdAt)}</span>
             </div>
             <p className="mt-1 text-sm text-slate-600">{message.text}</p>
           </div>

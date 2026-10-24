@@ -4,6 +4,7 @@ import type {
   TicketRequestStatus,
 } from '../types/ticket';
 import type { UserResponse } from '../types/user';
+import { formatDateTime } from '../utils/formatDate';
 
 interface TicketRequestListProps {
   requests: TicketRequestResponse[];
@@ -15,16 +16,6 @@ interface TicketRequestListProps {
     comment?: string,
     targetAssigneeId?: number,
   ) => Promise<void>;
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 const typeLabels = {
@@ -114,7 +105,7 @@ function RequestRow({
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.classes}`}>
           {status.label}
         </span>
-        <span className="ml-auto text-xs text-slate-400">{formatDate(request.createdAt)}</span>
+        <span className="ml-auto text-xs text-slate-400">{formatDateTime(request.createdAt)}</span>
       </div>
       <p className="mt-2 text-sm text-slate-600">{request.reason}</p>
       <p className="mt-1 text-xs text-slate-400">
@@ -127,7 +118,7 @@ function RequestRow({
       </p>
       {request.decidedBy && request.decidedAt && (
         <p className="mt-1 text-xs text-slate-400">
-          Решение: {request.decidedBy.fullName}, {formatDate(request.decidedAt)}
+          Решение: {request.decidedBy.fullName}, {formatDateTime(request.decidedAt)}
           {request.decisionComment ? ` · ${request.decisionComment}` : ''}
         </p>
       )}

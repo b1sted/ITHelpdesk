@@ -27,16 +27,7 @@ import type {
   TicketResponse,
 } from '../types/ticket';
 import type { UserResponse } from '../types/user';
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+import { formatDateTime } from '../utils/formatDate';
 
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -269,7 +260,7 @@ export function TicketDetailPage() {
         {canSeeOverdue && ticket.overdue && (
           <div className="mb-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
             <TriangleAlert className="h-4 w-4" />
-            Заявка просрочена. Крайний срок: {formatDate(ticket.dueAt)}.
+            Заявка просрочена. Крайний срок: {formatDateTime(ticket.dueAt)}.
           </div>
         )}
 
@@ -292,18 +283,18 @@ export function TicketDetailPage() {
           </div>
           <div>
             <div className="text-xs uppercase text-slate-400">Создана</div>
-            <div className="font-medium text-slate-700">{formatDate(ticket.createdAt)}</div>
+            <div className="font-medium text-slate-700">{formatDateTime(ticket.createdAt)}</div>
             {canSeeOverdue && (
-              <div className="text-xs text-slate-400">Крайний срок: {formatDate(ticket.dueAt)}</div>
+              <div className="text-xs text-slate-400">Крайний срок: {formatDateTime(ticket.dueAt)}</div>
             )}
             {ticket.resolvedAt && (
               <div className="text-xs text-slate-400">
-                Решена: {formatDate(ticket.resolvedAt)}
+                Решена: {formatDateTime(ticket.resolvedAt)}
               </div>
             )}
             {ticket.closedAt && (
               <div className="text-xs text-slate-400">
-                Закрыта: {formatDate(ticket.closedAt)}
+                Закрыта: {formatDateTime(ticket.closedAt)}
               </div>
             )}
           </div>
@@ -312,7 +303,7 @@ export function TicketDetailPage() {
         {canExtendDeadline && (
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <span className="text-sm text-slate-600">
-              Крайний срок: {formatDate(ticket.dueAt)}
+              Крайний срок: {formatDateTime(ticket.dueAt)}
             </span>
             {ticket.extensionHours > 0 && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
@@ -338,7 +329,7 @@ export function TicketDetailPage() {
                 <li key={extension.id}>
                   +{extension.hours} ч — {extension.reason}
                   <span className="ml-1 text-xs text-slate-400">
-                    ({extension.createdBy.fullName}, {formatDate(extension.createdAt)})
+                    ({extension.createdBy.fullName}, {formatDateTime(extension.createdAt)})
                   </span>
                 </li>
               ))}
@@ -424,7 +415,7 @@ export function TicketDetailPage() {
                     Продлить крайний срок
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Текущий срок: {formatDate(ticket.dueAt)}. Продление фиксируется в истории заявки.
+                    Текущий срок: {formatDateTime(ticket.dueAt)}. Продление фиксируется в истории заявки.
                   </p>
                 </div>
                 <button

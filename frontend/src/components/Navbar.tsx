@@ -52,7 +52,7 @@ export function Navbar() {
               <div className="text-xs text-slate-400 leading-tight">{user.email}</div>
             </div>
             <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-300">
-              {roleLabels[user.role] ?? user.role}
+              {roleLabels[user.role]}
             </span>
             <button
               onClick={handleLogout}
