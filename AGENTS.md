@@ -350,6 +350,7 @@ frontend/
 │   │   ├── Navbar.tsx            (Top header with tickets, statistics, admin links, User info and Logout)
 │   │   ├── StatusBadge.tsx       (Color-coded status pills: NEW, IN_PROGRESS, etc.)
 │   │   ├── MessageThread.tsx     (Ticket conversation timeline + message submission form)
+│   │   ├── TicketHistory.tsx     (Collapsible ticket request and deadline-extension history)
 │   │   ├── TicketRequestList.tsx (Release/reassignment request history and manager decision controls)
 │   │   └── *Route.tsx            (ProtectedRoute, EmployeeRoute, ManagerRoute, AdminRoute guards)
 │   ├── context/
@@ -374,7 +375,8 @@ frontend/
 2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` sees assigned tickets and the unassigned `NEW` queue with the full status filter set; `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT`, `MANAGER` and `ADMIN` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
 4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c / 4d View):**
-   * Left section: Ticket metadata (including `resolvedAt` / `closedAt` when present), full description, and chronological `MessageThread`.
+   * Layout: the title, description and overdue warning form a compact header; the main column holds the role-specific action panel and the chronological `MessageThread`; ticket metadata and the deadline card sit in the right sidebar; completed release/reassignment requests and deadline extensions are collapsed into the `История заявки` block. Pending requests that a manager or administrator must decide are highlighted separately above the columns.
+   * Main section: full description and chronological `MessageThread`; right sidebar: ticket metadata (including `resolvedAt` / `closedAt` when present) and the deadline card.
    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` and a `MANAGER` see the whole thread in read-only mode.
    * Action panel adapts dynamically based on authenticated role and current ticket status:
       * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`, and `[Продолжить работу]` / `[Решено]` if `status === 'ANSWERED'`. Action buttons are hidden if `status === 'RESOLVED'`.
