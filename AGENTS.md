@@ -213,6 +213,7 @@ ru.basted.ithelpdesk.<feature>/
 * Protect endpoints using declarative method security: `@PreAuthorize("hasRole('ADMIN')")`.
 * Ensure ownership checks: Only the creator of a ticket can confirm closing or reopening it.
 * **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists and derives granted authorities from the current database role (so role changes apply immediately), plus validates the token issuer.
+* **Email:** addresses are stored normalized (trim + lower-case) on create and update; a unique index on `lower(email)` enforces case-insensitive uniqueness and login remains case-insensitive.
 * **Login rate limit:** Failed login attempts per email are limited (`app.rate-limit.max-attempts`, default 5 per 5 minutes) and respond `429 Too Many Requests`.
 * **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
 * **Manager authority:** `ROLE_MANAGER` (displayed as **Руководитель**) and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents, change an agent's `ticket_limit` and `time_limit_hours`, extend ticket deadlines and manage support settings. Managers cannot claim tickets, change ticket statuses, or post messages.

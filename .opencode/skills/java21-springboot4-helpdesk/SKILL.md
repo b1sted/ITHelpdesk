@@ -124,6 +124,7 @@ Do not put `@Validated` on controllers: parameter validation is handled by the b
 - We do not use `@JsonView` — create separate Request/Response types.
 - Jakarta Validation constraints (`@NotBlank`, `@NotNull`, `@Size`, `@Email`, …) go on record components, each with a meaningful Russian `message`. A controller must have `@Valid`.
 - `@Schema(description = …, example = …)` goes on every DTO component, with texts in Russian.
+- E-mail addresses are normalized (`trim` + lower-case) in the service before persistence; uniqueness is enforced by a `lower(email)` index and login stays case-insensitive.
 
 ```java
 @Schema(description = "Модель данных для создания новой заявки")
@@ -233,7 +234,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
 - `LoginRateLimiter` keeps entries in memory without cleanup.
-- Email uniqueness is case-sensitive, login is not (`findByEmailIgnoreCase`).
 - Statistics load all tickets into memory — as data grows, an aggregating query is needed.
 - `IllegalArgumentException` as a whole turns into 400 — a dedicated domain exception would be better.
 - `JwtAuthenticationFilter` is a `@Component` filter, which Boot also registers in the servlet container.

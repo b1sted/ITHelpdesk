@@ -1,6 +1,7 @@
 package ru.basted.ithelpdesk.user.service;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -66,15 +67,16 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponse createUser(UserCreateRequest createRequest) {
-        if (repository.existsByEmail(createRequest.email())) {
+        String email = normalizeEmail(createRequest.email());
+        if (repository.existsByEmailIgnoreCase(email)) {
             throw new ConflictException(
-                    "Пользователь с электронной почтой %s уже существует"
-                            .formatted(createRequest.email())
+                    "Пользователь с электронной почтой %s уже существует".formatted(email)
             );
         }
         Department department = findDepartment(createRequest.departmentId());
 
         User user = mapper.toEntity(createRequest);
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(createRequest.password()));
         user.setDepartment(department);
         user.setTicketLimit(10);
@@ -92,8 +94,9 @@ public class UserServiceImpl implements UserService {
         }
 
         if (updateRequest.email() != null) {
-            String email = updateRequest.email();
-            if (!email.equals(user.getEmail()) && repository.existsByEmail(email)) {
+            String email = normalizeEmail(updateRequest.email());
+            if (!email.equalsIgnoreCase(user.getEmail())
+                    && repository.existsByEmailIgnoreCase(email)) {
                 throw new ConflictException(
                         "Пользователь с электронной почтой %s уже существует".formatted(email)
                 );
@@ -139,6 +142,10 @@ public class UserServiceImpl implements UserService {
                     "Нельзя удалить пользователя, у которого есть заявки или сообщения"
             );
         }
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     private User findUser(Long id) {
