@@ -13,17 +13,17 @@ This document serves as the single source of truth for AI agents (SourceCraft, C
 
 ## 2. Technical Stack & Tooling
 * **Backend:**
-  * **JDK:** Java 21 (LTS). Leverage records, pattern matching, and switch expressions.
-  * **Framework:** Spring Boot 4.1+ (Spring Web, Spring Data JPA, Spring Security, Validation).
-  * **Build Tool:** Gradle (Groovy DSL).
-  * **Database:** PostgreSQL (with Hibernate ORM).
-  * **Boilerplate Reduction:** Immutable DTOs as Java `record`s; no Lombok — entities expose explicit accessors and beans rely on constructor injection.
-  * **API Documentation:** Springdoc OpenAPI 3.1 (Springdoc 3.1.1, Swagger UI).
+   * **JDK:** Java 21 (LTS). Leverage records, pattern matching, and switch expressions.
+   * **Framework:** Spring Boot 4.1+ (Spring Web, Spring Data JPA, Spring Security, Validation).
+   * **Build Tool:** Gradle (Groovy DSL).
+   * **Database:** PostgreSQL (with Hibernate ORM).
+   * **Boilerplate Reduction:** Immutable DTOs as Java `record`s; no Lombok — entities expose explicit accessors and beans rely on constructor injection.
+   * **API Documentation:** Springdoc OpenAPI 3.1 (Springdoc 3.1.1, Swagger UI).
 * **Frontend:**
-  * **Core:** React 18, TypeScript, Vite.
-  * **Styling:** Tailwind CSS (modern, utility-first UI).
-  * **Icons:** Lucide React.
-  * **HTTP Client:** Axios (configured with base URL `/api/v1` and auth interceptors).
+   * **Core:** React 18, TypeScript, Vite.
+   * **Styling:** Tailwind CSS (modern, utility-first UI).
+   * **Icons:** Lucide React.
+   * **HTTP Client:** Axios (configured with base URL `/api/v1` and auth interceptors).
 
 ---
 
@@ -100,68 +100,68 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
 ### Table Definitions:
 
 1. **`departments`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `name`: `VARCHAR(100)` (Not Null, Unique)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `name`: `VARCHAR(100)` (Not Null, Unique)
 
 2. **`users`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `full_name`: `VARCHAR(150)` (Not Null)
-    * `email`: `VARCHAR(100)` (Not Null, Unique)
-    * `password`: `VARCHAR(255)` (Not Null, BCrypt hashed)
-    * `role`: `VARCHAR(20)` (Not Null, Enum: `EMPLOYEE`, `AGENT`, `MANAGER`, `ADMIN`)
-    * `ticket_limit`: `INTEGER` (Default 10, meaningful for `AGENT`; maximum active tickets)
-    * `time_limit_hours`: `INTEGER` (Default 24, meaningful for `AGENT`; maximum hours to resolve an assigned ticket)
-    * `department_id`: `BIGINT` (Foreign Key -> `departments.id`, Not Null)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `full_name`: `VARCHAR(150)` (Not Null)
+   * `email`: `VARCHAR(100)` (Not Null, Unique)
+   * `password`: `VARCHAR(255)` (Not Null, BCrypt hashed)
+   * `role`: `VARCHAR(20)` (Not Null, Enum: `EMPLOYEE`, `AGENT`, `MANAGER`, `ADMIN`)
+   * `ticket_limit`: `INTEGER` (Default 10, meaningful for `AGENT`; maximum active tickets)
+   * `time_limit_hours`: `INTEGER` (Default 24, meaningful for `AGENT`; maximum hours to resolve an assigned ticket)
+   * `department_id`: `BIGINT` (Foreign Key -> `departments.id`, Not Null)
 
 3. **`categories`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `name`: `VARCHAR(100)` (Not Null)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `name`: `VARCHAR(100)` (Not Null)
 
 4. **`tickets`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `title`: `VARCHAR(200)` (Not Null)
-    * `description`: `TEXT` (Not Null)
-    * `status`: `VARCHAR(30)` (Not Null, Enum)
-    * `created_at`: `TIMESTAMP` (Not Null)
-    * `resolved_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `RESOLVED`)
-    * `closed_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `CLOSED`)
-    * `extension_hours`: `INTEGER` (Not Null, default 0, cumulative deadline extension)
-    * `creator_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
-    * `assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
-    * `category_id`: `BIGINT` (Foreign Key -> `categories.id`, Not Null)
-    * Derived only (not stored): `due_at = created_at + limit-hours + extension_hours`, `overdue = status in (NEW, IN_PROGRESS, ANSWERED) && now > due_at`.
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `title`: `VARCHAR(200)` (Not Null)
+   * `description`: `TEXT` (Not Null)
+   * `status`: `VARCHAR(30)` (Not Null, Enum)
+   * `created_at`: `TIMESTAMP` (Not Null)
+   * `resolved_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `RESOLVED`)
+   * `closed_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `CLOSED`)
+   * `extension_hours`: `INTEGER` (Not Null, default 0, cumulative deadline extension)
+   * `creator_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+   * `assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
+   * `category_id`: `BIGINT` (Foreign Key -> `categories.id`, Not Null)
+   * Derived only (not stored): `due_at = created_at + limit-hours + extension_hours`, `overdue = status in (NEW, IN_PROGRESS, ANSWERED) && now > due_at`.
 
 5. **`messages`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `text`: `TEXT` (Not Null)
-    * `created_at`: `TIMESTAMP` (Not Null)
-    * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
-    * `author_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `text`: `TEXT` (Not Null)
+   * `created_at`: `TIMESTAMP` (Not Null)
+   * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
+   * `author_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
 
 6. **`ticket_requests`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `type`: `VARCHAR(20)` (Not Null, Enum: `RELEASE`, `REASSIGN`)
-    * `status`: `VARCHAR(20)` (Not Null, Enum: `PENDING`, `APPROVED`, `REJECTED`)
-    * `reason`: `TEXT` (Not Null, mandatory justification from the agent)
-    * `decision_comment`: `VARCHAR(1000)` (Nullable, manager comment)
-    * `created_at`: `TIMESTAMP` (Not Null)
-    * `decided_at`: `TIMESTAMP` (Nullable)
-    * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
-    * `requester_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
-    * `target_assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable, optional for `REASSIGN`)
-    * `decided_by_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `type`: `VARCHAR(20)` (Not Null, Enum: `RELEASE`, `REASSIGN`)
+   * `status`: `VARCHAR(20)` (Not Null, Enum: `PENDING`, `APPROVED`, `REJECTED`)
+   * `reason`: `TEXT` (Not Null, mandatory justification from the agent)
+   * `decision_comment`: `VARCHAR(1000)` (Nullable, manager comment)
+   * `created_at`: `TIMESTAMP` (Not Null)
+   * `decided_at`: `TIMESTAMP` (Nullable)
+   * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
+   * `requester_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+   * `target_assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable, optional for `REASSIGN`)
+   * `decided_by_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
 
 7. **`ticket_deadline_extensions`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `hours`: `INTEGER` (Not Null, 1–720 per action)
-    * `reason`: `TEXT` (Not Null, mandatory justification)
-    * `created_at`: `TIMESTAMP` (Not Null)
-    * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
-    * `created_by_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `hours`: `INTEGER` (Not Null, 1–720 per action)
+   * `reason`: `TEXT` (Not Null, mandatory justification)
+   * `created_at`: `TIMESTAMP` (Not Null)
+   * `ticket_id`: `BIGINT` (Foreign Key -> `tickets.id`, Not Null)
+   * `created_by_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
 
 8. **`support_settings`**
-    * `id`: `BIGINT` (Primary Key, Identity)
-    * `auto_close_resolved_hours`: `INTEGER` (Not Null, default 0; 0 disables auto-closing)
+   * `id`: `BIGINT` (Primary Key, Identity)
+   * `auto_close_resolved_hours`: `INTEGER` (Not Null, default 0; 0 disables auto-closing)
 
 ---
 
@@ -369,15 +369,15 @@ frontend/
 2. **Screen 2 (Ticket List):** Table with columns: Number, Title, Category, Assignee, Status (color-coded badge), Created Date. `EMPLOYEE` sees only own tickets with `[Активные]` / `[Архив]` filters; `AGENT` sees assigned tickets and the unassigned `NEW` queue with the full status filter set; `MANAGER` and `ADMIN` see all tickets with the full status filter set. Overdue rows are highlighted in red and carry a `[Просрочена]` badge for `AGENT`, `MANAGER` and `ADMIN` only. Displays `[+ Создать заявку]` button only for `ROLE_EMPLOYEE`.
 3. **Screen 3 (Create Ticket Form):** Category dropdown, Title input, Description textarea. Validates required fields before submitting to `POST /api/v1/tickets`.
 4. **Screen 4 (Ticket Details - Adaptive 4a / 4b / 4c / 4d View):**
-    * Left section: Ticket metadata (including `resolvedAt` / `closedAt` when present), full description, and chronological `MessageThread`.
-    * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` and a `MANAGER` see the whole thread in read-only mode.
-    * Action panel adapts dynamically based on authenticated role and current ticket status:
-        * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`, and `[Продолжить работу]` / `[Решено]` if `status === 'ANSWERED'`. Action buttons are hidden if `status === 'RESOLVED'`.
-        * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.
-        * **Admin View (4c):** Read-only inspection of any ticket. No assign, status or message submission actions are shown; administrators can still decide pending requests and see overdue markers in the list.
-        * **Manager View (4d):** Read-only ticket and thread inspection plus a request panel with `[Одобрить]` / `[Отклонить]` for pending requests. Managers never see message submission, assign or status controls.
-    * An assigned `AGENT` on an active ticket sees a request panel to `[Отказаться от заявки]` or `[Переназначить специалисту]`. The agent must provide a mandatory justification and, for reassignment, choose another agent. While a `PENDING` request exists the form is replaced with a waiting notice.
-    * An assigned `AGENT`, a `MANAGER` or an `ADMIN` can open the deadline extension dialog, enter 1–720 hours and a mandatory reason; the ticket then shows the extended `dueAt` and the full extension history.
+   * Left section: Ticket metadata (including `resolvedAt` / `closedAt` when present), full description, and chronological `MessageThread`.
+   * Conversation rules: an `AGENT` sees the whole thread but the submission form is hidden until the agent is the ticket assignee (a hint explains why); an `EMPLOYEE` sees the form only in their own ticket while it is not `CLOSED` and cannot access foreign tickets; an `ADMIN` and a `MANAGER` see the whole thread in read-only mode.
+   * Action panel adapts dynamically based on authenticated role and current ticket status:
+      * **Agent View (4a):** Shows `[Взять в работу]` if `status === 'NEW'`. Shows `[Жду ответа]` and `[Решено]` if `status === 'IN_PROGRESS'`, and `[Продолжить работу]` / `[Решено]` if `status === 'ANSWERED'`. Action buttons are hidden if `status === 'RESOLVED'`.
+      * **Author View (4b):** Action buttons are hidden while `NEW` or `IN_PROGRESS`. Shows `[Закрыть заявку]` and `[Вернуть на доработку]` ONLY when `status === 'RESOLVED'`.
+      * **Admin View (4c):** Read-only inspection of any ticket. No assign, status or message submission actions are shown; administrators can still decide pending requests and see overdue markers in the list.
+      * **Manager View (4d):** Read-only ticket and thread inspection plus a request panel with `[Одобрить]` / `[Отклонить]` for pending requests. Managers never see message submission, assign or status controls.
+   * An assigned `AGENT` on an active ticket sees a request panel to `[Отказаться от заявки]` or `[Переназначить специалисту]`. The agent must provide a mandatory justification and, for reassignment, choose another agent. While a `PENDING` request exists the form is replaced with a waiting notice.
+   * An assigned `AGENT`, a `MANAGER` or an `ADMIN` can open the deadline extension dialog, enter 1–720 hours and a mandatory reason; the ticket then shows the extended `dueAt` and the full extension history.
 5. **Screen 5 (Admin Console):** Accessible at `/admin` only to `ROLE_ADMIN`. Provides tabs for users, departments and categories, plus a shortcut back to the ticket list. Users can be created, edited (full name, email, department, role) and deleted; roles include `EMPLOYEE`, `AGENT`, `MANAGER` and `ADMIN`.
 6. **Screen 6 (Statistics):** Accessible at `/statistics` to `ROLE_MANAGER` and `ROLE_ADMIN`. Shows per-agent ticket and time limits, total/active/resolved/closed/overdue counts, inline limit editing, created/resolved/closed dynamics by month or year with average resolution time, the auto-close settings form, and the release/reassignment request queue with a pending/all-history filter and decision controls.
 
@@ -442,3 +442,29 @@ export interface TicketResponse {
 * **Build frontend for production:** `cd frontend && npm run build`
 * **Run the production stack:** `docker compose --env-file .env -f docker-compose.prod.yml up -d --build` (nginx serves the SPA and proxies `/api`, Swagger UI and OpenAPI docs to the backend).
 * **SPA cache policy:** the production nginx serves `index.html` with `Cache-Control: no-store` and hashed `/assets/*` files with a 30-day immutable cache, so a rebuilt frontend (including the statistics screen) is picked up on the next navigation instead of a stale cached bundle.
+
+---
+
+## 10. Development Workflow (Git & Verification)
+
+These rules apply to every task unless the user explicitly says otherwise.
+
+### 10.1. Branches and Commits
+* Before starting, `git status` must be clean; if it is not, stop and report it.
+* One topic = one branch, created from an up-to-date `main`. Never mix unrelated changes in one branch. Match the naming of existing branches and the message style of existing commits (check `git branch -a` and `git log --oneline -30`).
+* Inside a branch, make meaningful commits split by logical step (for example: schema/migration, service logic, error handling, tests, documentation). No single giant commit, no meaningless "wip"/"fix" commits. Every commit must build and pass the tests.
+* Merge into `main` only with `git merge --no-ff <branch>` and a meaningful merge commit message in the style of the existing history. Do not delete the branch after merging.
+* Without explicit user permission do not run `git push`, `--force`, `reset --hard`, rebase or squash on existing history.
+* On a merge conflict do not resolve it blindly: stop and show the conflict.
+
+### 10.2. Verification Before Committing and Merging
+* **Backend:** `./gradlew test` and `./gradlew build -x test` must pass. If API behavior changed, start the application (section 9) and call the affected endpoints for real: both the success path and the error path (status code and Russian message).
+* **Frontend:** run the lint, type-check, test (if present) and build commands from `frontend/package.json`. If DTOs, response codes, error texts or the API contract changed, update frontend types and code (section 8.3) and check the affected screens against the local backend.
+* If the UI cannot be checked visually, do not claim it was verified: state that it was checked by build, types and API calls, and list what the user should check manually.
+* If a check fails, do not commit or merge: fix the cause, or stop and explain.
+
+### 10.3. Documentation
+* When a change affects the schema, API, processes, configuration properties or build commands, update the corresponding sections of this file (4, 5, 7, 9) in the same branch.
+
+### 10.4. Final Report
+At the end of a task list: branches, commits, what exactly was verified and how, and the merge result.
