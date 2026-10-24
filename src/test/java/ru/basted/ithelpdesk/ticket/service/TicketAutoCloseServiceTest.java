@@ -38,16 +38,16 @@ class TicketAutoCloseServiceTest {
     @Test
     void closesResolvedTicketsPastDeadline() {
         Ticket expired = ticket(LocalDateTime.now().minusHours(30));
-        Ticket recent = ticket(LocalDateTime.now().minusHours(1));
         when(settingsService.getAutoCloseResolvedHours()).thenReturn(24);
-        when(ticketRepository.findAllByStatusOrderByCreatedAtDesc(TicketStatus.RESOLVED))
-                .thenReturn(List.of(expired, recent));
+        when(ticketRepository.findAllByStatusAndResolvedAtLessThanEqualOrderByCreatedAtDesc(
+                org.mockito.ArgumentMatchers.eq(TicketStatus.RESOLVED),
+                org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+        )).thenReturn(List.of(expired));
 
         service.closeResolvedTickets();
 
         assertEquals(TicketStatus.CLOSED, expired.getStatus());
         assertNotNull(expired.getClosedAt());
-        assertEquals(TicketStatus.RESOLVED, recent.getStatus());
         verify(ticketRepository, never()).save(org.mockito.ArgumentMatchers.any(Ticket.class));
     }
 

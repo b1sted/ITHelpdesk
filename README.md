@@ -52,8 +52,9 @@ docker compose up -d
 cd frontend && npm ci && npm run dev
 ```
 
-On first startup the backend seeds the `IT Service Desk` department, four default
-categories and the admin account `admin@company.ru` / `Admin2024!`
+On first startup Flyway creates the schema and reference data (the `IT Service Desk`
+department, four default categories and the support settings row), then the backend
+creates the admin account `admin@company.ru` / `Admin2024!`
 (overridable via `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_FULL_NAME`).
 
 ## 📦 Production

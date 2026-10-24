@@ -16,7 +16,7 @@ This document serves as the single source of truth for AI agents (SourceCraft, C
    * **JDK:** Java 21 (LTS). Leverage records, pattern matching, and switch expressions.
    * **Framework:** Spring Boot 4.1+ (Spring Web, Spring Data JPA, Spring Security, Validation).
    * **Build Tool:** Gradle (Groovy DSL).
-   * **Database:** PostgreSQL (with Hibernate ORM).
+   * **Database:** PostgreSQL (with Hibernate ORM). Schema changes are managed exclusively by Flyway migrations.
    * **Boilerplate Reduction:** Immutable DTOs as Java `record`s; no Lombok — entities expose explicit accessors and beans rely on constructor injection.
    * **API Documentation:** Springdoc OpenAPI 3.1 (Springdoc 3.1.1, Swagger UI).
 * **Frontend:**
@@ -106,11 +106,11 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
 2. **`users`**
    * `id`: `BIGINT` (Primary Key, Identity)
    * `full_name`: `VARCHAR(150)` (Not Null)
-   * `email`: `VARCHAR(100)` (Not Null, Unique)
+   * `email`: `VARCHAR(100)` (Not Null, unique case-insensitive index on `lower(email)`)
    * `password`: `VARCHAR(255)` (Not Null, BCrypt hashed)
    * `role`: `VARCHAR(20)` (Not Null, Enum: `EMPLOYEE`, `AGENT`, `MANAGER`, `ADMIN`)
-   * `ticket_limit`: `INTEGER` (Default 10, meaningful for `AGENT`; maximum active tickets)
-   * `time_limit_hours`: `INTEGER` (Default 24, meaningful for `AGENT`; maximum hours to resolve an assigned ticket)
+   * `ticket_limit`: `INTEGER` (Not Null, Default 10, meaningful for `AGENT`; maximum active tickets)
+   * `time_limit_hours`: `INTEGER` (Not Null, Default 24, meaningful for `AGENT`; maximum hours to resolve an assigned ticket)
    * `department_id`: `BIGINT` (Foreign Key -> `departments.id`, Not Null)
 
 3. **`categories`**
@@ -126,6 +126,7 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
    * `resolved_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `RESOLVED`)
    * `closed_at`: `TIMESTAMP` (Nullable, set when the ticket becomes `CLOSED`)
    * `extension_hours`: `INTEGER` (Not Null, default 0, cumulative deadline extension)
+   * `version`: `BIGINT` (Not Null, default 0, optimistic locking)
    * `creator_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
    * `assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
    * `category_id`: `BIGINT` (Foreign Key -> `categories.id`, Not Null)
@@ -150,6 +151,7 @@ All tables must be normalized (3NF). Class names must be **singular**, and table
    * `requester_id`: `BIGINT` (Foreign Key -> `users.id`, Not Null)
    * `target_assignee_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable, optional for `REASSIGN`)
    * `decided_by_id`: `BIGINT` (Foreign Key -> `users.id`, Nullable)
+   * `version`: `BIGINT` (Not Null, default 0, optimistic locking)
 
 7. **`ticket_deadline_extensions`**
    * `id`: `BIGINT` (Primary Key, Identity)
@@ -215,7 +217,7 @@ ru.basted.ithelpdesk.<feature>/
 * **CORS:** The frontend origin(s) are configured via `app.cors.allowed-origins` (default `http://localhost:5173`).
 * **Manager authority:** `ROLE_MANAGER` (displayed as **Руководитель**) and `ROLE_ADMIN` can read agent statistics, list and decide ticket requests, list support agents, change an agent's `ticket_limit` and `time_limit_hours`, extend ticket deadlines and manage support settings. Managers cannot claim tickets, change ticket statuses, or post messages.
 * **Agent capacity:** `AgentCapacityPolicy` enforces the per-agent active-ticket limit on claim and on approved reassignment. Counted statuses are `IN_PROGRESS`, `WAITING_USER`, `ANSWERED`.
-* **SLA:** each agent has a persisted `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets and for agents without an explicit limit. `WAITING_USER` tickets are excluded from overdue detection.
+* **SLA:** each agent has a persisted non-null `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets only. `WAITING_USER` tickets are excluded from overdue detection.
 * **Deadline extension:** the assigned agent, a manager or an administrator can extend an active ticket by 1–720 hours in total with a mandatory reason. Every action is stored in `ticket_deadline_extensions` and increments `tickets.extension_hours`.
 * **Auto-closing:** `SYSTEM_DAEMON` runs every `app.ticket.auto-close-check-ms` (default 1 hour) and closes `RESOLVED` tickets older than `support_settings.auto_close_resolved_hours`; `0` disables it.
 
@@ -433,7 +435,7 @@ export interface TicketResponse {
 ## 9. Build & Verification Commands
 * **Start local PostgreSQL:** `docker compose up -d`
 * **Run backend application:** `./gradlew bootRun` (serves REST API and Swagger UI at `http://localhost:8080/swagger-ui.html`)
-* **Automated seeding & repair:** On startup `core.config.DBInitializer` idempotently creates the `IT Service Desk` department, four default incident categories, the admin account `admin@company.ru` / `Admin2024!` (password overridable via `ADMIN_PASSWORD`, full name via `ADMIN_FULL_NAME`) and the singleton `support_settings` row. It also backfills `users.ticket_limit` to `10`, `users.time_limit_hours` to `24` for agents, `tickets.extension_hours` to `0`, and restores missing `tickets.resolved_at` / `tickets.closed_at` values for historical `RESOLVED` and `CLOSED` tickets.
+* **Database schema & reference data:** Flyway owns the schema (`src/main/resources/db/migration`, baseline `V1`), including the `IT Service Desk` department, default incident categories, the singleton `support_settings` row, constraints, indexes and NOT NULL defaults. `spring.jpa.hibernate.ddl-auto=validate`. On startup `core.config.DBInitializer` only idempotently creates the admin account `admin@company.ru` / `Admin2024!` (password overridable via `ADMIN_PASSWORD`, full name via `ADMIN_FULL_NAME`). No backfills or data repair run in the application.
 * **Overdue threshold:** `TICKET_OVERDUE_HOURS` (default `24`, property `app.ticket.overdue-hours`) is the fallback when an assigned agent has no personal time limit; managers can set per-agent limits in the statistics screen.
 * **Auto-close scheduler:** `TICKET_AUTO_CLOSE_CHECK_MS` (default `3600000`, property `app.ticket.auto-close-check-ms`) controls how often `SYSTEM_DAEMON` checks for `RESOLVED` tickets to close.
 * **Run test suite:** `./gradlew test`

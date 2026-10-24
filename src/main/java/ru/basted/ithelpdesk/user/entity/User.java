@@ -29,10 +29,10 @@ public class User extends BaseEntity {
     @Column(name = "role", nullable = false, length = 20)
     private UserRole role;
 
-    @Column(name = "ticket_limit")
+    @Column(name = "ticket_limit", nullable = false)
     private Integer ticketLimit = 10;
 
-    @Column(name = "time_limit_hours")
+    @Column(name = "time_limit_hours", nullable = false)
     private Integer timeLimitHours = 24;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

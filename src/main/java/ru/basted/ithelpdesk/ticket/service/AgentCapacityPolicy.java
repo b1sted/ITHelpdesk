@@ -11,7 +11,6 @@ import ru.basted.ithelpdesk.user.entity.User;
 
 @Component
 public class AgentCapacityPolicy {
-    public static final int DEFAULT_TICKET_LIMIT = 10;
     public static final Set<TicketStatus> ACTIVE_STATUSES =
             Set.of(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_USER, TicketStatus.ANSWERED);
 
@@ -34,6 +33,6 @@ public class AgentCapacityPolicy {
     }
 
     public int resolveLimit(User agent) {
-        return agent.getTicketLimit() == null ? DEFAULT_TICKET_LIMIT : agent.getTicketLimit();
+        return agent.getTicketLimit();
     }
 }

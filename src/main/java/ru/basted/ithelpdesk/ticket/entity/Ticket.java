@@ -38,7 +38,7 @@ public class Ticket extends BaseEntity {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
-    @Column(name = "extension_hours")
+    @Column(name = "extension_hours", nullable = false)
     private Integer extensionHours = 0;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
