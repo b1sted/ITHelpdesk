@@ -11,6 +11,14 @@ class ApiExceptionHandlerTest {
     private final ApiExceptionHandler handler = new ApiExceptionHandler();
 
     @Test
+    void badRequestIsReportedAsBadRequest() {
+        var response = handler.handleBadRequest(new BadRequestException("Некорректный статус"));
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Некорректный статус", response.getBody().message());
+    }
+
+    @Test
     void optimisticLockConflictIsReportedAsConflict() {
         var response = handler.handleOptimisticLock(
                 new ObjectOptimisticLockingFailureException(Ticket.class, 1L)
