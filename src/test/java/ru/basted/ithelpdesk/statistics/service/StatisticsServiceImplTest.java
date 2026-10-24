@@ -85,6 +85,25 @@ class StatisticsServiceImplTest {
         assertEquals(1, statistics.buckets().getFirst().created());
     }
 
+    @Test
+    void distributesMonthlyStatisticsAcrossCorrectMonths() {
+        User agent = user(2L, UserRole.AGENT);
+        int year = LocalDateTime.now().getYear();
+        LocalDateTime created = LocalDateTime.of(year, 10, 10, 10, 0);
+        Ticket ticket = ticket(TicketStatus.CLOSED, agent, created);
+        ticket.setResolvedAt(created.plusHours(20));
+        ticket.setClosedAt(created.plusHours(24));
+
+        when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(ticket));
+
+        var statistics = service.getPeriodStatistics(StatisticsGranularity.MONTH);
+
+        assertEquals(0, statistics.buckets().getFirst().created());
+        assertEquals(1, statistics.buckets().get(9).created());
+        assertEquals(1, statistics.buckets().get(9).resolved());
+        assertEquals(1, statistics.buckets().get(9).closed());
+    }
+
     private Ticket ticket(TicketStatus status, User assignee, LocalDateTime createdAt) {
         Ticket ticket = new Ticket();
         ticket.setTitle("Заявка");
