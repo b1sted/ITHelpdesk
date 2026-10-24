@@ -38,18 +38,14 @@ public class TicketAutoCloseService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime cutoff = now.minusHours(autoCloseHours);
-        List<Ticket> resolved = ticketRepository.findAllByStatusOrderByCreatedAtDesc(
-                TicketStatus.RESOLVED
-        );
+        List<Ticket> resolved =
+                ticketRepository.findAllByStatusAndResolvedAtLessThanEqualOrderByCreatedAtDesc(
+                        TicketStatus.RESOLVED, cutoff
+                );
 
         for (Ticket ticket : resolved) {
-            LocalDateTime resolvedAt = ticket.getResolvedAt() == null
-                    ? ticket.getCreatedAt()
-                    : ticket.getResolvedAt();
-            if (!resolvedAt.isAfter(cutoff)) {
-                ticket.setStatus(TicketStatus.CLOSED);
-                ticket.setClosedAt(now);
-            }
+            ticket.setStatus(TicketStatus.CLOSED);
+            ticket.setClosedAt(now);
         }
     }
 }

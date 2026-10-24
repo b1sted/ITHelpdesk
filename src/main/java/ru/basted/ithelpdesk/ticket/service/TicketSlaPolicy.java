@@ -18,16 +18,13 @@ public final class TicketSlaPolicy {
     }
 
     public static long limitHours(User assignee, long fallbackHours) {
-        return assignee == null || assignee.getTimeLimitHours() == null
-                ? fallbackHours
-                : assignee.getTimeLimitHours();
+        return assignee == null ? fallbackHours : assignee.getTimeLimitHours();
     }
 
     public static LocalDateTime dueAt(Ticket ticket, long fallbackHours) {
-        int extensionHours = ticket.getExtensionHours() == null ? 0 : ticket.getExtensionHours();
         return ticket.getCreatedAt()
                 .plusHours(limitHours(ticket.getAssignee(), fallbackHours))
-                .plusHours(extensionHours);
+                .plusHours(ticket.getExtensionHours());
     }
 
     public static boolean isOverdue(Ticket ticket, long fallbackHours, LocalDateTime now) {

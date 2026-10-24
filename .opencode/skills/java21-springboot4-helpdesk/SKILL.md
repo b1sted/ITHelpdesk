@@ -172,7 +172,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Enums use `@Enumerated(EnumType.STRING)` with a `length`. Time is `LocalDateTime`, columns like `created_at`.
 - `spring.jpa.open-in-view=false`. Consequence: lazy associations cannot be read outside a transaction. Either map to a DTO inside `@Transactional`, or load associations up front with `@EntityGraph(attributePaths = {...})` on repository methods (as in `TicketRepository`). This protects against `LazyInitializationException` and N+1.
 - Queries are derived query methods; for non-trivial ones use `@Query` with a text block. Do not pass an `Entity` from a repository to a controller.
-- The schema is currently updated via `ddl-auto=update` and manual DDL in `DBInitializer`. For new schema changes prefer explicit migrations (Flyway: `spring-boot-starter-flyway`) — but only move to them on request; that is a separate task.
+- Schema changes are made only through Flyway migrations in `src/main/resources/db/migration` (`spring-boot-starter-flyway` + `flyway-database-postgresql`); `spring.jpa.hibernate.ddl-auto=validate`. The baseline `V1` owns tables, constraints, indexes and reference data. `DBInitializer` only creates the admin account. Never add DDL, backfills or data repair to application code.
 - Concurrent operations (taking a ticket, deciding on a request) are currently unprotected: there is no `@Version`. Do not make it worse: when working in those places, propose optimistic locking or an atomic `UPDATE ... WHERE status = :expected`, catching the conflict as `409`.
 
 ## 9. MapStruct
@@ -194,6 +194,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Parameters go in `application.properties` as `${ENV_VAR:default}`; in code use `@Value("${app.xxx:default}")` in the constructor. Add a new property with the `app.` prefix together with an environment variable, and if needed to `.env.example` and `docker-compose*.yml`, and mention it in `AGENTS.md`.
 - Do not hardcode or log secrets. The default `JWT_SECRET` and the seeded admin password are acceptable only for local development.
 - Scheduler: `@EnableScheduling` on `Application`, tasks are `@Scheduled(fixedDelayString = "${…}")` + `@Transactional` in a service (`TicketAutoCloseService`). Move intervals into properties.
+- Flyway: migrations run at startup. `spring.flyway.baseline-on-migrate=true` and `spring.flyway.baseline-version=1` let an already upgraded production database be baselined without re-running `V1`. Never edit an applied migration; add a new one.
 - Swagger: `/swagger-ui.html` and `/v3/api-docs` are public paths; common OpenAPI settings live in `OpenApiConfig` (the `BearerAuth` scheme).
 
 ## 12. Tests
@@ -225,6 +226,8 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Do not change the semantics of statuses and permissions without checking the BP-1…BP-13 process table in `AGENTS.md`.
 - Do not leave dead code behind: unused imports, private methods, repository methods, DTO fields, properties and dependencies must be removed together with the change that made them unused.
 - Do not load whole tables to filter, count or group in memory — use repository queries; do not call `save()` on an already managed entity inside a transaction without need.
+- Do not add application-side backfills, data repair or fallbacks for legacy data. Schema and reference data change only through Flyway migrations; one-off production normalization is performed by the database administrator with a script.
+- Do not copy date formatting, route guards or role checks between files when a shared helper already exists.
 
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
@@ -234,7 +237,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Statistics load all tickets into memory — as data grows, an aggregating query is needed.
 - `IllegalArgumentException` as a whole turns into 400 — a dedicated domain exception would be better.
 - `JwtAuthenticationFilter` is a `@Component` filter, which Boot also registers in the servlet container.
-- `ddl-auto=update` and manual DDL instead of migrations.
 
 When you work next to one of these spots, mention it to the user instead of silently fixing it as part of an unrelated task. When a weak spot is fixed, remove it from this list in the same change.
 
