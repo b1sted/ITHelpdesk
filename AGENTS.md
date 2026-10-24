@@ -220,6 +220,7 @@ ru.basted.ithelpdesk.<feature>/
 * **SLA:** each agent has a persisted non-null `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets only. `WAITING_USER` tickets are excluded from overdue detection.
 * **Deadline extension:** the assigned agent, a manager or an administrator can extend an active ticket by 1–720 hours in total with a mandatory reason. Every action is stored in `ticket_deadline_extensions` and increments `tickets.extension_hours`.
 * **Auto-closing:** `SYSTEM_DAEMON` runs every `app.ticket.auto-close-check-ms` (default 1 hour) and closes `RESOLVED` tickets older than `support_settings.auto_close_resolved_hours`; `0` disables it.
+* **Concurrency:** `tickets` and `ticket_requests` carry a `version` column with JPA `@Version`. Taking a ticket is an atomic `UPDATE ... WHERE status = NEW` that also re-checks the agent capacity; a stale optimistic update is mapped to `409 Conflict` with a Russian message.
 
 ### 6.5. OpenAPI (Swagger) Documentation, Validation & Localization Rules
 The system communicates with users and developers **exclusively in Russian**.

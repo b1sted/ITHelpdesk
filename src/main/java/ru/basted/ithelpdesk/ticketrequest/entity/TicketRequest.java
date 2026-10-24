@@ -11,6 +11,7 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
@@ -38,6 +39,10 @@ public class TicketRequest extends BaseEntity {
 
     @Column(name = "decided_at")
     private LocalDateTime decidedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "ticket_id", nullable = false,
