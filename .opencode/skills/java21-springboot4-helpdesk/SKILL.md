@@ -235,12 +235,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 - Do not add application-side backfills, data repair or fallbacks for legacy data. Schema and reference data change only through Flyway migrations; one-off production normalization is performed by the database administrator with a script.
 - Do not copy date formatting, route guards or role checks between files when a shared helper already exists.
 
-## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
-
-
-When you work next to one of these spots, mention it to the user instead of silently fixing it as part of an unrelated task. When a weak spot is fixed, remove it from this list in the same change.
-
-## 16. Checklist before handing over
+## 15. Checklist before handing over
 
 - [ ] New code repeats the structure of a neighbouring module (packages, names, style).
 - [ ] No Lombok, field injection, `javax`, Jackson 2 or `org.springframework.lang` imports.
