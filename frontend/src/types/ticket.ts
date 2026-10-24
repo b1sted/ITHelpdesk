@@ -21,6 +21,8 @@ export interface TicketResponse {
   categoryName: string;
   overdue: boolean;
   dueAt: string;
+  resolvedAt: string | null;
+  closedAt: string | null;
   messages: MessageResponse[];
 }
 

@@ -31,8 +31,6 @@ import ru.basted.ithelpdesk.user.entity.UserRole;
 public class TicketServiceImpl implements TicketService {
     private static final Set<TicketStatus> RESOLVABLE_STATUSES =
             Set.of(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_USER, TicketStatus.ANSWERED);
-    private static final Set<TicketStatus> COMPLETED_STATUSES =
-            Set.of(TicketStatus.RESOLVED, TicketStatus.CLOSED);
 
     private final TicketRepository repository;
     private final TicketMapper mapper;
@@ -156,6 +154,8 @@ public class TicketServiceImpl implements TicketService {
                 "Отметить заявку решённой может только назначенный исполнитель");
 
         ticket.setStatus(TicketStatus.RESOLVED);
+        ticket.setResolvedAt(LocalDateTime.now());
+        ticket.setClosedAt(null);
         return ticket;
     }
 
@@ -166,6 +166,7 @@ public class TicketServiceImpl implements TicketService {
                 "Закрыть заявку может только её автор");
 
         ticket.setStatus(TicketStatus.CLOSED);
+        ticket.setClosedAt(LocalDateTime.now());
         return ticket;
     }
 
@@ -194,6 +195,8 @@ public class TicketServiceImpl implements TicketService {
                 "Для возврата заявки на доработку требуется причина");
 
         ticket.setStatus(TicketStatus.IN_PROGRESS);
+        ticket.setResolvedAt(null);
+        ticket.setClosedAt(null);
         return ticket;
     }
 
@@ -262,14 +265,8 @@ public class TicketServiceImpl implements TicketService {
                 ? messageService.getMessagesByTicket(ticket.getId())
                 : List.of();
 
-        long timeLimitHours = ticket.getAssignee() == null
-                || ticket.getAssignee().getTimeLimitHours() == null
-                ? overdueHours
-                : ticket.getAssignee().getTimeLimitHours();
-
-        LocalDateTime dueAt = ticket.getCreatedAt().plusHours(timeLimitHours);
-        boolean overdue = !COMPLETED_STATUSES.contains(ticket.getStatus())
-                && LocalDateTime.now().isAfter(dueAt);
+        LocalDateTime dueAt = TicketSlaPolicy.dueAt(ticket, overdueHours);
+        boolean overdue = TicketSlaPolicy.isOverdue(ticket, overdueHours, LocalDateTime.now());
 
         return new TicketResponse(
                 ticket.getId(),
@@ -282,6 +279,8 @@ public class TicketServiceImpl implements TicketService {
                 ticket.getCategory().getName(),
                 overdue,
                 dueAt,
+                ticket.getResolvedAt(),
+                ticket.getClosedAt(),
                 messages
         );
     }

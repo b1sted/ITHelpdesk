@@ -47,6 +47,7 @@ class StatisticsServiceImplTest {
                 .thenReturn(List.of(agent));
         when(ticketRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(
                 ticket(TicketStatus.IN_PROGRESS, agent, LocalDateTime.now().minusHours(30)),
+                ticket(TicketStatus.WAITING_USER, agent, LocalDateTime.now().minusHours(30)),
                 ticket(TicketStatus.RESOLVED, agent, LocalDateTime.now().minusHours(30)),
                 ticket(TicketStatus.CLOSED, agent, LocalDateTime.now().minusHours(1))
         ));
@@ -56,8 +57,8 @@ class StatisticsServiceImplTest {
         assertEquals(1, statistics.size());
         assertEquals(5, statistics.getFirst().ticketLimit());
         assertEquals(12, statistics.getFirst().timeLimitHours());
-        assertEquals(3, statistics.getFirst().totalAssigned());
-        assertEquals(1, statistics.getFirst().activeTickets());
+        assertEquals(4, statistics.getFirst().totalAssigned());
+        assertEquals(2, statistics.getFirst().activeTickets());
         assertEquals(1, statistics.getFirst().resolvedTickets());
         assertEquals(1, statistics.getFirst().closedTickets());
         assertEquals(1, statistics.getFirst().overdueTickets());

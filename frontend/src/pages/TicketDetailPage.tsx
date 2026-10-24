@@ -258,7 +258,9 @@ export function TicketDetailPage() {
           <div>
             <div className="text-xs uppercase text-slate-400">Создана</div>
             <div className="font-medium text-slate-700">{formatDate(ticket.createdAt)}</div>
-            <div className="text-xs text-slate-400">Крайний срок: {formatDate(ticket.dueAt)}</div>
+            {canSeeOverdue && (
+              <div className="text-xs text-slate-400">Крайний срок: {formatDate(ticket.dueAt)}</div>
+            )}
           </div>
         </div>
 

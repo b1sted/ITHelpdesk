@@ -53,6 +53,10 @@ public interface TicketAPI {
                 "departmentName": "Департамент разработки"
               },
               "categoryName": "Программное обеспечение",
+              "overdue": false,
+              "dueAt": "2026-10-19T10:15:30",
+              "resolvedAt": null,
+              "closedAt": null,
               "messages": [
                 {
                   "id": 1,

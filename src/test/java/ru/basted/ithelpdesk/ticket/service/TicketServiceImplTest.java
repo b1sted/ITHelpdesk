@@ -149,6 +149,20 @@ class TicketServiceImplTest {
     }
 
     @Test
+    void waitingForUserTicketIsNotOverdue() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.WAITING_USER, user(1L, UserRole.EMPLOYEE), agent);
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+        when(messageService.getMessagesByTicket(1L)).thenReturn(List.of());
+
+        var response = service.getTicketDetails(1L);
+
+        assertEquals(false, response.overdue());
+    }
+
+    @Test
     void employeeSeesOnlyOwnTickets() {
         User employee = user(7L, UserRole.EMPLOYEE);
         Ticket ticket = ticket(TicketStatus.NEW, employee, null);
