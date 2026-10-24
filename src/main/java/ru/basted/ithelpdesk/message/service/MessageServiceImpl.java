@@ -71,6 +71,12 @@ public class MessageServiceImpl implements MessageService {
         Ticket ticket = findTicket(ticketId);
         checkViewerCanReadThread(ticket);
 
+        return getMessagesForTicket(ticketId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MessageResponse> getMessagesForTicket(Long ticketId) {
         return repository.findAllByTicketIdOrderByCreatedAtAsc(ticketId)
                 .stream()
                 .map(this::toResponse)

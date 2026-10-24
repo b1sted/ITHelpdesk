@@ -147,7 +147,7 @@ public class TicketRequestServiceImpl implements TicketRequestService {
         request.setDecidedBy(manager);
         request.setDecidedAt(LocalDateTime.now());
 
-        return toResponse(repository.save(request));
+        return toResponse(request);
     }
 
     private void applyApprovedRequest(TicketRequest request, TicketRequestDecisionRequest decision) {
@@ -171,8 +171,6 @@ public class TicketRequestServiceImpl implements TicketRequestService {
             ticket.setStatus(TicketStatus.IN_PROGRESS);
             request.setTargetAssignee(target);
         }
-
-        ticketRepository.save(ticket);
     }
 
     private User resolveTargetAssignee(TicketRequest request, TicketRequestDecisionRequest decision) {

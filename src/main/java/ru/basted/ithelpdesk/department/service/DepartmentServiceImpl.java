@@ -64,7 +64,7 @@ public class DepartmentServiceImpl implements DepartmentService {
         }
 
         department.setName(name);
-        return mapper.toResponseDto(repository.save(department));
+        return mapper.toResponseDto(department);
     }
 
     @Override

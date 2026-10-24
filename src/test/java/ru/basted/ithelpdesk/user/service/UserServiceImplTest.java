@@ -48,7 +48,6 @@ class UserServiceImplTest {
     void partialUpdateChangesOnlyProvidedFields() {
         User user = user();
         when(repository.findById(1L)).thenReturn(Optional.of(user));
-        when(repository.save(user)).thenReturn(user);
 
         var response = service.updateUser(
                 1L, new UserUpdateRequest(null, null, UserRole.AGENT, null)
@@ -64,7 +63,6 @@ class UserServiceImplTest {
         User user = user();
         user.setRole(UserRole.AGENT);
         when(repository.findById(1L)).thenReturn(Optional.of(user));
-        when(repository.save(user)).thenReturn(user);
 
         var response = service.updateLimits(1L, new UserLimitsRequest(7, 12));
 

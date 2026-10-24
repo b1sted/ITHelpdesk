@@ -109,7 +109,7 @@ public class UserServiceImpl implements UserService {
             user.setDepartment(findDepartment(updateRequest.departmentId()));
         }
 
-        return toResponse(repository.save(user));
+        return toResponse(user);
     }
 
     @Override
@@ -123,7 +123,7 @@ public class UserServiceImpl implements UserService {
 
         user.setTicketLimit(request.ticketLimit());
         user.setTimeLimitHours(request.timeLimitHours());
-        return toResponse(repository.save(user));
+        return toResponse(user);
     }
 
     @Override

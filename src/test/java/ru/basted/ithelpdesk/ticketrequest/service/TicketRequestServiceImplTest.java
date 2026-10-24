@@ -99,14 +99,12 @@ class TicketRequestServiceImplTest {
 
         when(repository.findById(10L)).thenReturn(Optional.of(request));
         when(currentUser.get()).thenReturn(manager);
-        when(repository.save(request)).thenReturn(request);
 
         service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, "Согласовано", null));
 
         assertEquals(TicketStatus.NEW, ticket.getStatus());
         assertNull(ticket.getAssignee());
         assertEquals(TicketRequestStatus.APPROVED, request.getStatus());
-        verify(ticketRepository).save(ticket);
     }
 
     @Test
@@ -119,7 +117,6 @@ class TicketRequestServiceImplTest {
 
         when(repository.findById(10L)).thenReturn(Optional.of(request));
         when(currentUser.get()).thenReturn(manager);
-        when(repository.save(request)).thenReturn(request);
 
         service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null, null));
 
@@ -139,7 +136,6 @@ class TicketRequestServiceImplTest {
         when(repository.findById(10L)).thenReturn(Optional.of(request));
         when(currentUser.get()).thenReturn(manager);
         when(userRepository.findById(3L)).thenReturn(Optional.of(target));
-        when(repository.save(request)).thenReturn(request);
 
         service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null, 3L));
 
@@ -176,7 +172,6 @@ class TicketRequestServiceImplTest {
 
         when(repository.findById(10L)).thenReturn(Optional.of(request));
         when(currentUser.get()).thenReturn(manager);
-        when(repository.save(request)).thenReturn(request);
 
         service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.REJECTED, "Нет оснований", null));
 

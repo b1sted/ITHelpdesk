@@ -27,7 +27,7 @@ public class SettingsServiceImpl implements SettingsService {
     public SupportSettingsResponse updateSupportSettings(SupportSettingsUpdateRequest request) {
         SupportSettings settings = loadOrCreate();
         settings.setAutoCloseResolvedHours(request.autoCloseResolvedHours());
-        return toResponse(repository.save(settings));
+        return toResponse(settings);
     }
 
     @Override
