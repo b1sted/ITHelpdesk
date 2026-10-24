@@ -75,6 +75,8 @@ public class DBInitializer implements ApplicationRunner {
         refreshUserRoleConstraint();
         migrateAgentLimits();
         migrateTicketExtensions();
+        migrateTicketLifecycleTimestamps();
+        seedSupportSettings();
         Department department = seedDepartment();
         seedCategories();
         seedAdmin(department);
@@ -102,6 +104,34 @@ public class DBInitializer implements ApplicationRunner {
     private void migrateTicketExtensions() {
         jdbcTemplate.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS extension_hours INTEGER");
         jdbcTemplate.execute("UPDATE tickets SET extension_hours = 0 WHERE extension_hours IS NULL");
+    }
+
+    private void migrateTicketLifecycleTimestamps() {
+        jdbcTemplate.execute("""
+                UPDATE tickets t
+                SET resolved_at = COALESCE(
+                    (SELECT MAX(m.created_at) FROM messages m WHERE m.ticket_id = t.id),
+                    t.created_at
+                )
+                WHERE t.status IN ('RESOLVED', 'CLOSED') AND t.resolved_at IS NULL
+                """);
+        jdbcTemplate.execute("""
+                UPDATE tickets t
+                SET closed_at = COALESCE(t.resolved_at, t.created_at)
+                WHERE t.status = 'CLOSED' AND t.closed_at IS NULL
+                """);
+    }
+
+    private void seedSupportSettings() {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM support_settings",
+                Integer.class
+        );
+        if (count == null || count == 0) {
+            jdbcTemplate.update(
+                    "INSERT INTO support_settings (auto_close_resolved_hours) VALUES (0)"
+            );
+        }
     }
 
     private Department seedDepartment() {
