@@ -212,6 +212,7 @@ ru.basted.ithelpdesk.<feature>/
 * Passwords must be encoded using `BCryptPasswordEncoder`.
 * Protect endpoints using declarative method security: `@PreAuthorize("hasRole('ADMIN')")`.
 * Ensure ownership checks: Only the creator of a ticket can confirm closing or reopening it.
+* **JWT filter registration:** `JwtAuthenticationFilter` is a `@Component`; its automatic servlet-container registration is disabled with a disabled `FilterRegistrationBean`, while the filter stays in the Spring Security chain.
 * **JWT:** Tokens are signed with HS256 using a secret of at least 32 bytes (from `app.jwt.secret`, overridable via `JWT_SECRET`). Tokens carry `sub` (email), `uid` and `role` claims with a 24-hour expiry; every request re-validates that the user still exists and derives granted authorities from the current database role (so role changes apply immediately), plus validates the token issuer.
 * **Email:** addresses are stored normalized (trim + lower-case) on create and update; a unique index on `lower(email)` enforces case-insensitive uniqueness and login remains case-insensitive.
 * **Login rate limit:** Failed login attempts per email are limited (`app.rate-limit.max-attempts`, default 5 per 5 minutes) and respond `429 Too Many Requests`; expired windows are removed every `app.rate-limit.cleanup-ms` (env `RATE_LIMIT_CLEANUP_MS`, default 1 minute).

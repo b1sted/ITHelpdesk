@@ -162,6 +162,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 
 - Lambda DSL only: `http.csrf(...).cors(...).sessionManagement(...).authorizeHttpRequests(...)`. The `and()` and `authorizeRequests()` methods are removed. `MvcRequestMatcher`/`AntPathRequestMatcher` are gone too — use `requestMatchers("/path/**")` (strings) or `PathPatternRequestMatcher`.
 - The application is stateless: `SessionCreationPolicy.STATELESS`, CSRF disabled, CORS configured through `app.cors.allowed-origins`.
+- `JwtAuthenticationFilter` is a `@Component` added to the Security chain; disable its duplicate servlet-container registration with a `FilterRegistrationBean` (`setEnabled(false)`).
 - Method-level authorization: `@EnableMethodSecurity` + `@PreAuthorize("hasRole('ADMIN')")` in `<Entity>API`. For "the user themself", the `UserSecurity.isSelf(id)` bean is used.
 - JWT: HS256, secret ≥ 32 bytes (`app.jwt.secret` / `JWT_SECRET`), claims `sub` (email), `uid`, `role`, lifetime 24 h, issuer `ithelpdesk`. The implementation is `JwtService` on `NimbusJwtEncoder/Decoder`. On every request `JwtAuthenticationFilter` re-reads the user from the DB and takes the role **from the DB**, not from the token — a role change takes effect immediately. Preserve this property.
 - Passwords — only through `PasswordEncoder` (BCrypt); a password never appears in any Response DTO or in logs.
@@ -236,7 +237,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
-- `JwtAuthenticationFilter` is a `@Component` filter, which Boot also registers in the servlet container.
 
 When you work next to one of these spots, mention it to the user instead of silently fixing it as part of an unrelated task. When a weak spot is fixed, remove it from this list in the same change.
 
