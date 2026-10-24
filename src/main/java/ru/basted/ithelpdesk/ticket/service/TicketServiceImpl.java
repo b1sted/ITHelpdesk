@@ -164,7 +164,7 @@ public class TicketServiceImpl implements TicketService {
                     "Продлить крайний срок может исполнитель, руководитель или администратор");
         }
 
-        int currentExtension = ticket.getExtensionHours() == null ? 0 : ticket.getExtensionHours();
+        int currentExtension = ticket.getExtensionHours();
         int totalExtension = currentExtension + extensionRequest.hours();
         checkRule(totalExtension <= 720,
                 "Суммарное продление крайнего срока не может превышать 720 часов");
