@@ -11,6 +11,7 @@ import org.springframework.util.StringUtils;
 
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
+import ru.basted.ithelpdesk.core.exception.BadRequestException;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
@@ -138,10 +139,10 @@ public class TicketServiceImpl implements TicketService {
             case RESOLVED -> resolveTicket(ticket, user);
             case CLOSED -> closeTicket(ticket, user);
             case IN_PROGRESS -> resumeOrReopenTicket(ticket, user, changeRequest.reason());
-            case NEW -> throw new IllegalArgumentException(
+            case NEW -> throw new BadRequestException(
                     "Недопустимый целевой статус NEW для изменения заявки"
             );
-            default -> throw new IllegalArgumentException("Новый статус заявки обязателен");
+            default -> throw new BadRequestException("Новый статус заявки обязателен");
         };
 
         return toResponse(updated, false);

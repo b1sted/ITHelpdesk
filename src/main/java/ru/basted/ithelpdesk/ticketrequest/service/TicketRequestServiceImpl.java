@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import ru.basted.ithelpdesk.core.exception.BadRequestException;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
@@ -130,7 +131,7 @@ public class TicketRequestServiceImpl implements TicketRequestService {
 
         if (decision.status() != TicketRequestStatus.APPROVED
                 && decision.status() != TicketRequestStatus.REJECTED) {
-            throw new IllegalArgumentException("Решение по запросу должно быть APPROVED или REJECTED");
+            throw new BadRequestException("Решение по запросу должно быть APPROVED или REJECTED");
         }
 
         User manager = currentUser.get();

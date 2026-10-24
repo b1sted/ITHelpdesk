@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import ru.basted.ithelpdesk.category.entity.Category;
+import ru.basted.ithelpdesk.core.exception.BadRequestException;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
@@ -159,6 +160,22 @@ class TicketRequestServiceImplTest {
                 ConflictException.class,
                 () -> service.decide(
                         10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null, null)
+                )
+        );
+    }
+
+    @Test
+    void decisionWithPendingStatusIsBadRequest() {
+        User requester = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), requester);
+        TicketRequest request = request(TicketRequestType.RELEASE, requester, null, ticket);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(request));
+
+        assertThrows(
+                BadRequestException.class,
+                () -> service.decide(
+                        10L, new TicketRequestDecisionRequest(TicketRequestStatus.PENDING, null, null)
                 )
         );
     }

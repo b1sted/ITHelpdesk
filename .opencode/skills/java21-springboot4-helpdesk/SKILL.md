@@ -115,7 +115,7 @@ Do not put `@Validated` on controllers: parameter validation is handled by the b
 - Interface + `@Service` implementation, dependencies injected **through the constructor only**, fields are `final`. No `@Autowired` on fields.
 - `@Transactional` on mutating methods of the implementation, `@Transactional(readOnly = true)` on reading ones.
 - Ownership checks and business rules belong in the service (not in the controller). The user is obtained via `CurrentUser.get()`.
-- Violation of state-machine rules → `ConflictException` (409); missing entity → `NotFoundException` (404). Project pattern: small helpers `checkRule(boolean, String)` and `checkOwnership(...)`.
+- Violation of state-machine rules → `ConflictException` (409); missing entity → `NotFoundException` (404); invalid request argument → `BadRequestException` (400). Project pattern: small helpers `checkRule(boolean, String)` and `checkOwnership(...)`.
 - Each action = one transparent state change (the "atomic" process principle from `AGENTS.md`). Do not merge several business processes into one method.
 
 ## 5. DTOs, validation, localization
@@ -150,6 +150,7 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 | DB integrity violation | `DataIntegrityViolationException` | 409 |
 | Stale optimistic-lock update | `OptimisticLockingFailureException` | 409 |
 | Validation, unreadable body, wrong parameter type | handled in the handler | 400 |
+| Invalid domain request argument | `BadRequestException` | 400 |
 | Login attempt limit exceeded | `RateLimitExceededException` | 429 |
 
 **Resource masking (important):** an unauthenticated request, an invalid token and insufficient permissions always produce `404` with the body `{"message":"Ресурс не найден"}` ("Resource not found") — never `401`/`403`. This is done by `RestAuthenticationHandler` (both `AuthenticationEntryPoint` and `AccessDeniedHandler`). Therefore:
@@ -235,7 +236,6 @@ The single point is `core.exception.ApiExceptionHandler` (`@RestControllerAdvice
 
 ## 15. Known weak spots (do not replicate; suggest a fix when appropriate)
 
-- `IllegalArgumentException` as a whole turns into 400 — a dedicated domain exception would be better.
 - `JwtAuthenticationFilter` is a `@Component` filter, which Boot also registers in the servlet container.
 
 When you work next to one of these spots, mention it to the user instead of silently fixing it as part of an unrelated task. When a weak spot is fixed, remove it from this list in the same change.

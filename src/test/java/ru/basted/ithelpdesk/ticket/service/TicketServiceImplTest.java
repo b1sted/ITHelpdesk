@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import ru.basted.ithelpdesk.category.entity.Category;
 import ru.basted.ithelpdesk.category.repository.CategoryRepository;
+import ru.basted.ithelpdesk.core.exception.BadRequestException;
 import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.exception.NotFoundException;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
@@ -92,6 +93,21 @@ class TicketServiceImplTest {
                 )
         );
         verify(repository, never()).save(any(Ticket.class));
+    }
+
+    @Test
+    void changingTicketToNewStatusIsBadRequest() {
+        User author = user(1L, UserRole.EMPLOYEE);
+        Ticket ticket = ticket(TicketStatus.NEW, author, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(author);
+
+        assertThrows(
+                BadRequestException.class,
+                () -> service.changeStatus(
+                        1L, new TicketStatusChangeRequest(TicketStatus.NEW, null)
+                )
+        );
     }
 
     @Test
