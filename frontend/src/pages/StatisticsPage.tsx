@@ -32,6 +32,7 @@ export function StatisticsPage() {
   const [granularity, setGranularity] = useState<StatisticsGranularity>('MONTH');
   const [period, setPeriod] = useState<PeriodStatisticsResponse | null>(null);
   const [periodLoading, setPeriodLoading] = useState(true);
+  const [requestStatus, setRequestStatus] = useState<TicketRequestStatus | 'ALL'>('PENDING');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -39,20 +40,20 @@ export function StatisticsPage() {
     setLoading(true);
     Promise.all([
       getAgentStatistics(),
-      getTicketRequestsByStatus('PENDING'),
+      getTicketRequestsByStatus(requestStatus === 'ALL' ? undefined : requestStatus),
       getAgents(),
       getSupportSettings(),
     ])
-      .then(([stats, pending, agentList, settings]) => {
+      .then(([stats, requestList, agentList, settings]) => {
         setError('');
         setStatistics(stats);
-        setRequests(pending);
+        setRequests(requestList);
         setAgents(agentList);
         setAutoCloseHours(String(settings.autoCloseResolvedHours));
       })
       .catch(() => setError('Не удалось загрузить статистику'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [requestStatus]);
 
   useEffect(load, [load]);
 
@@ -262,9 +263,33 @@ export function StatisticsPage() {
           </section>
 
           <section className="rounded-lg bg-white p-5 shadow">
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">
-              Запросы, ожидающие решения
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-slate-700">
+                Запросы на отказ и переназначение
+              </h2>
+              <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                <button
+                  onClick={() => setRequestStatus('PENDING')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    requestStatus === 'PENDING'
+                      ? 'bg-white text-slate-800 shadow'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Ожидают решения
+                </button>
+                <button
+                  onClick={() => setRequestStatus('ALL')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    requestStatus === 'ALL'
+                      ? 'bg-white text-slate-800 shadow'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Вся история
+                </button>
+              </div>
+            </div>
             <TicketRequestList
               requests={requests}
               agents={agents}

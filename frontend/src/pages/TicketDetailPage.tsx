@@ -296,6 +296,16 @@ export function TicketDetailPage() {
             {canSeeOverdue && (
               <div className="text-xs text-slate-400">Крайний срок: {formatDate(ticket.dueAt)}</div>
             )}
+            {ticket.resolvedAt && (
+              <div className="text-xs text-slate-400">
+                Решена: {formatDate(ticket.resolvedAt)}
+              </div>
+            )}
+            {ticket.closedAt && (
+              <div className="text-xs text-slate-400">
+                Закрыта: {formatDate(ticket.closedAt)}
+              </div>
+            )}
           </div>
         </div>
 

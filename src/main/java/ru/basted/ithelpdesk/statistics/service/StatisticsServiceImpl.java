@@ -83,9 +83,9 @@ public class StatisticsServiceImpl implements StatisticsService {
         LocalDateTime to = LocalDateTime.of(year + 1, 1, 1, 0, 0);
 
         for (Ticket ticket : tickets) {
-            addToBucket(buckets, ticket.getCreatedAt(), year, year, Bucket::markCreated);
-            addToBucket(buckets, ticket.getResolvedAt(), year, year, Bucket::markResolved);
-            addToBucket(buckets, ticket.getClosedAt(), year, year, Bucket::markClosed);
+            addToMonthBucket(buckets, ticket.getCreatedAt(), year, Bucket::markCreated);
+            addToMonthBucket(buckets, ticket.getResolvedAt(), year, Bucket::markResolved);
+            addToMonthBucket(buckets, ticket.getClosedAt(), year, Bucket::markClosed);
         }
 
         return toPeriodResponse(StatisticsGranularity.MONTH, buckets, tickets, from, to);
@@ -110,6 +110,18 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
         return toPeriodResponse(StatisticsGranularity.YEAR, buckets, tickets, from, to);
+    }
+
+    private void addToMonthBucket(
+            Bucket[] buckets,
+            LocalDateTime date,
+            int year,
+            BucketAction action
+    ) {
+        if (date == null || date.getYear() != year) {
+            return;
+        }
+        action.apply(buckets[date.getMonthValue() - 1], date);
     }
 
     private void addToBucket(
