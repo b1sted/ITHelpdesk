@@ -3,6 +3,7 @@ package ru.basted.ithelpdesk.ticket.service;
 import java.util.List;
 
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
+import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
@@ -17,4 +18,6 @@ public interface TicketService {
     TicketResponse assignTicket(Long id);
 
     TicketResponse changeStatus(Long id, TicketStatusChangeRequest changeRequest);
+
+    TicketResponse extendDeadline(Long id, TicketDeadlineExtensionRequest extensionRequest);
 }

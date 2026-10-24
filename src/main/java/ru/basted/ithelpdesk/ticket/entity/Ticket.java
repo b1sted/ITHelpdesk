@@ -38,6 +38,9 @@ public class Ticket extends BaseEntity {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
+    @Column(name = "extension_hours", nullable = false)
+    private Integer extensionHours = 0;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "creator_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_tickets_creator_id"))
@@ -99,6 +102,14 @@ public class Ticket extends BaseEntity {
 
     public void setClosedAt(LocalDateTime closedAt) {
         this.closedAt = closedAt;
+    }
+
+    public Integer getExtensionHours() {
+        return extensionHours;
+    }
+
+    public void setExtensionHours(Integer extensionHours) {
+        this.extensionHours = extensionHours;
     }
 
     public User getCreator() {

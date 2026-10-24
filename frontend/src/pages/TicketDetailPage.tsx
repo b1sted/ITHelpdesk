@@ -6,6 +6,7 @@ import {
   addMessage,
   assignTicket,
   changeTicketStatus,
+  extendTicketDeadline,
   getTicket,
 } from '../api/ticketsApi';
 import { getAgents } from '../api/adminApi';
@@ -54,6 +55,10 @@ export function TicketDetailPage() {
   const [requestTarget, setRequestTarget] = useState('');
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [deadlineOpen, setDeadlineOpen] = useState(false);
+  const [extensionHours, setExtensionHours] = useState('24');
+  const [extensionReason, setExtensionReason] = useState('');
+  const [deadlineSubmitting, setDeadlineSubmitting] = useState(false);
 
   const isAgent = user?.role === 'AGENT';
   const isManager = user?.role === 'MANAGER';
@@ -175,6 +180,34 @@ export function TicketDetailPage() {
     }
   };
 
+  const handleExtendDeadline = async () => {
+    setActionError('');
+    const hours = Number(extensionHours);
+    if (!Number.isInteger(hours) || hours < 1 || hours > 720) {
+      setActionError('Количество часов должно быть целым числом от 1 до 720');
+      return;
+    }
+    if (!extensionReason.trim()) {
+      setActionError('Укажите причину продления крайнего срока');
+      return;
+    }
+    setDeadlineSubmitting(true);
+    try {
+      await extendTicketDeadline(ticket.id, {
+        hours,
+        reason: extensionReason.trim(),
+      });
+      setDeadlineOpen(false);
+      setExtensionHours('24');
+      setExtensionReason('');
+      await refresh();
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, 'Не удалось продлить крайний срок'));
+    } finally {
+      setDeadlineSubmitting(false);
+    }
+  };
+
   const handleDecide = async (
     requestId: number,
     status: Exclude<TicketRequestStatus, 'PENDING'>,
@@ -194,6 +227,8 @@ export function TicketDetailPage() {
   const isAssignee = user?.id === ticket.assignee?.id;
   const canSeeOverdue = isAgent || isManager || isAdmin;
   const isActive = ['IN_PROGRESS', 'WAITING_USER', 'ANSWERED'].includes(ticket.status);
+  const canExtendDeadline =
+    isActive && (isManager || isAdmin || (isAgent && isAssignee));
   const pendingRequest = requests.find((request) => request.status === 'PENDING');
 
   const canAgentWork =
@@ -264,6 +299,43 @@ export function TicketDetailPage() {
           </div>
         </div>
 
+        {canExtendDeadline && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="text-sm text-slate-600">
+              Крайний срок: {formatDate(ticket.dueAt)}
+            </span>
+            {ticket.extensionHours > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                Продлён на {ticket.extensionHours} ч
+              </span>
+            )}
+            <button
+              onClick={() => setDeadlineOpen(true)}
+              className="ml-auto rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            >
+              Продлить срок
+            </button>
+          </div>
+        )}
+
+        {canSeeOverdue && ticket.deadlineExtensions.length > 0 && (
+          <div className="mt-4 rounded-md border border-slate-200 bg-white p-3">
+            <h3 className="mb-2 text-sm font-semibold text-slate-700">
+              История продления срока
+            </h3>
+            <ul className="space-y-1 text-sm text-slate-600">
+              {ticket.deadlineExtensions.map((extension) => (
+                <li key={extension.id}>
+                  +{extension.hours} ч — {extension.reason}
+                  <span className="ml-1 text-xs text-slate-400">
+                    ({extension.createdBy.fullName}, {formatDate(extension.createdAt)})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {actionError && (
           <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {actionError}
@@ -321,6 +393,78 @@ export function TicketDetailPage() {
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {deadlineOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6"
+            onClick={() => !deadlineSubmitting && setDeadlineOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="deadline-extension-title"
+              className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h2 id="deadline-extension-title" className="text-base font-semibold text-slate-800">
+                    Продлить крайний срок
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Текущий срок: {formatDate(ticket.dueAt)}. Продление фиксируется в истории заявки.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDeadlineOpen(false)}
+                  disabled={deadlineSubmitting}
+                  className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                  title="Закрыть"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <label className="block text-sm text-slate-600">
+                  <span className="mb-1 block text-xs uppercase text-slate-400">
+                    Продлить на, часов
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    value={extensionHours}
+                    onChange={(event) => setExtensionHours(event.target.value)}
+                    className="w-32 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  />
+                </label>
+                <textarea
+                  value={extensionReason}
+                  onChange={(event) => setExtensionReason(event.target.value)}
+                  rows={4}
+                  placeholder="Причина продления (обязательно)"
+                  className="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setDeadlineOpen(false)}
+                    disabled={deadlineSubmitting}
+                    className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={handleExtendDeadline}
+                    disabled={deadlineSubmitting}
+                    className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {deadlineSubmitting ? 'Сохранение...' : 'Продлить'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

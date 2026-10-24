@@ -17,11 +17,15 @@ import ru.basted.ithelpdesk.core.security.CurrentUser;
 import ru.basted.ithelpdesk.message.dto.MessageResponse;
 import ru.basted.ithelpdesk.message.service.MessageService;
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
+import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
+import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
+import ru.basted.ithelpdesk.ticket.entity.TicketDeadlineExtension;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
+import ru.basted.ithelpdesk.ticket.repository.TicketDeadlineExtensionRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.user.dto.UserSummary;
 import ru.basted.ithelpdesk.user.entity.User;
@@ -33,6 +37,7 @@ public class TicketServiceImpl implements TicketService {
             Set.of(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_USER, TicketStatus.ANSWERED);
 
     private final TicketRepository repository;
+    private final TicketDeadlineExtensionRepository extensionRepository;
     private final TicketMapper mapper;
     private final CategoryRepository categoryRepository;
     private final MessageService messageService;
@@ -42,6 +47,7 @@ public class TicketServiceImpl implements TicketService {
 
     public TicketServiceImpl(
             TicketRepository repository,
+            TicketDeadlineExtensionRepository extensionRepository,
             TicketMapper mapper,
             CategoryRepository categoryRepository,
             MessageService messageService,
@@ -50,6 +56,7 @@ public class TicketServiceImpl implements TicketService {
             @Value("${app.ticket.overdue-hours:24}") long overdueHours
     ) {
         this.repository = repository;
+        this.extensionRepository = extensionRepository;
         this.mapper = mapper;
         this.categoryRepository = categoryRepository;
         this.messageService = messageService;
@@ -135,6 +142,39 @@ public class TicketServiceImpl implements TicketService {
         };
 
         return toResponse(repository.save(updated), false);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse extendDeadline(Long id, TicketDeadlineExtensionRequest extensionRequest) {
+        Ticket ticket = findTicket(id);
+        User user = currentUser.get();
+
+        checkRule(AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()),
+                "Продлить крайний срок можно только для активной заявки");
+        if (user.getRole() == UserRole.AGENT) {
+            checkOwnership(user, ticket.getAssignee(),
+                    "Продлить крайний срок может только назначенный исполнитель");
+        } else {
+            checkRule(user.getRole() == UserRole.MANAGER || user.getRole() == UserRole.ADMIN,
+                    "Продлить крайний срок может исполнитель, руководитель или администратор");
+        }
+
+        int currentExtension = ticket.getExtensionHours() == null ? 0 : ticket.getExtensionHours();
+        int totalExtension = currentExtension + extensionRequest.hours();
+        checkRule(totalExtension <= 720,
+                "Суммарное продление крайнего срока не может превышать 720 часов");
+
+        TicketDeadlineExtension extension = new TicketDeadlineExtension();
+        extension.setHours(extensionRequest.hours());
+        extension.setReason(extensionRequest.reason());
+        extension.setCreatedAt(LocalDateTime.now());
+        extension.setTicket(ticket);
+        extension.setCreatedBy(user);
+        extensionRepository.save(extension);
+
+        ticket.setExtensionHours(totalExtension);
+        return toResponse(repository.save(ticket), true);
     }
 
     private Ticket pauseTicket(Ticket ticket, User user) {
@@ -264,6 +304,12 @@ public class TicketServiceImpl implements TicketService {
         List<MessageResponse> messages = withMessages
                 ? messageService.getMessagesByTicket(ticket.getId())
                 : List.of();
+        List<TicketDeadlineExtensionResponse> deadlineExtensions = withMessages
+                ? extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(ticket.getId())
+                        .stream()
+                        .map(this::toExtensionResponse)
+                        .toList()
+                : List.of();
 
         LocalDateTime dueAt = TicketSlaPolicy.dueAt(ticket, overdueHours);
         boolean overdue = TicketSlaPolicy.isOverdue(ticket, overdueHours, LocalDateTime.now());
@@ -281,7 +327,19 @@ public class TicketServiceImpl implements TicketService {
                 dueAt,
                 ticket.getResolvedAt(),
                 ticket.getClosedAt(),
+                ticket.getExtensionHours(),
+                deadlineExtensions,
                 messages
+        );
+    }
+
+    private TicketDeadlineExtensionResponse toExtensionResponse(TicketDeadlineExtension extension) {
+        return new TicketDeadlineExtensionResponse(
+                extension.getId(),
+                extension.getHours(),
+                extension.getReason(),
+                extension.getCreatedAt(),
+                toSummary(extension.getCreatedBy())
         );
     }
 

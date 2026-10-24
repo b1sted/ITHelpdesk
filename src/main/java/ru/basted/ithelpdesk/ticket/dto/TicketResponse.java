@@ -47,6 +47,12 @@ public record TicketResponse(
     @Schema(description = "Дата и время окончательного закрытия заявки", nullable = true)
     LocalDateTime closedAt,
 
+    @Schema(description = "Суммарное продление крайнего срока в часах", example = "0")
+    Integer extensionHours,
+
+    @Schema(description = "История продления крайнего срока")
+    List<TicketDeadlineExtensionResponse> deadlineExtensions,
+
     @Schema(description = "Сообщения по заявке, перечисленные в хронологическом порядке")
     List<MessageResponse> messages
 ) {}

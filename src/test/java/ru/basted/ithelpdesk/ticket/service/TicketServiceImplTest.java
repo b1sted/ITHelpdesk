@@ -27,10 +27,12 @@ import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
 import ru.basted.ithelpdesk.department.entity.Department;
 import ru.basted.ithelpdesk.message.service.MessageService;
+import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
+import ru.basted.ithelpdesk.ticket.repository.TicketDeadlineExtensionRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
 import ru.basted.ithelpdesk.user.entity.User;
@@ -40,6 +42,8 @@ import ru.basted.ithelpdesk.user.entity.UserRole;
 class TicketServiceImplTest {
     @Mock
     private TicketRepository repository;
+    @Mock
+    private TicketDeadlineExtensionRepository extensionRepository;
     @Mock
     private TicketMapper mapper;
     @Mock
@@ -54,7 +58,7 @@ class TicketServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new TicketServiceImpl(
-                repository, mapper, categoryRepository, messageService, currentUser,
+                repository, extensionRepository, mapper, categoryRepository, messageService, currentUser,
                 new AgentCapacityPolicy(repository), 24
         );
     }
@@ -156,10 +160,44 @@ class TicketServiceImplTest {
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(currentUser.get()).thenReturn(agent);
         when(messageService.getMessagesByTicket(1L)).thenReturn(List.of());
+        when(extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 
         var response = service.getTicketDetails(1L);
 
         assertEquals(false, response.overdue());
+    }
+
+    @Test
+    void assignedAgentExtendsDeadline() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+        when(repository.save(ticket)).thenReturn(ticket);
+        when(extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
+
+        var response = service.extendDeadline(
+                1L, new TicketDeadlineExtensionRequest(12, "Ожидается согласование доступа")
+        );
+
+        assertEquals(12, response.extensionHours());
+        assertEquals(36, java.time.Duration.between(ticket.getCreatedAt(), response.dueAt()).toHours());
+        verify(extensionRepository).save(any());
+    }
+
+    @Test
+    void employeeCannotExtendDeadline() {
+        User author = user(1L, UserRole.EMPLOYEE);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, author, user(2L, UserRole.AGENT));
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(author);
+
+        assertThrows(
+                ConflictException.class,
+                () -> service.extendDeadline(
+                        1L, new TicketDeadlineExtensionRequest(12, "Нужно больше времени")
+                )
+        );
     }
 
     @Test
@@ -193,6 +231,7 @@ class TicketServiceImplTest {
         when(repository.findById(1L)).thenReturn(Optional.of(ticket));
         when(currentUser.get()).thenReturn(author);
         when(messageService.getMessagesByTicket(1L)).thenReturn(List.of());
+        when(extensionRepository.findAllByTicketIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 
         var response = service.getTicketDetails(1L);
 

@@ -24,7 +24,10 @@ public final class TicketSlaPolicy {
     }
 
     public static LocalDateTime dueAt(Ticket ticket, long fallbackHours) {
-        return ticket.getCreatedAt().plusHours(limitHours(ticket.getAssignee(), fallbackHours));
+        int extensionHours = ticket.getExtensionHours() == null ? 0 : ticket.getExtensionHours();
+        return ticket.getCreatedAt()
+                .plusHours(limitHours(ticket.getAssignee(), fallbackHours))
+                .plusHours(extensionHours);
     }
 
     public static boolean isOverdue(Ticket ticket, long fallbackHours, LocalDateTime now) {

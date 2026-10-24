@@ -12,6 +12,7 @@ public interface TicketMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "resolvedAt", ignore = true)
     @Mapping(target = "closedAt", ignore = true)
+    @Mapping(target = "extensionHours", ignore = true)
     @Mapping(target = "creator", ignore = true)
     @Mapping(target = "assignee", ignore = true)
     @Mapping(target = "category", ignore = true)

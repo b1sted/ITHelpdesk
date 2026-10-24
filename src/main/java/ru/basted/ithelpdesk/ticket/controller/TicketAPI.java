@@ -27,6 +27,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import ru.basted.ithelpdesk.core.exception.ApiError;
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
+import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
@@ -57,6 +58,8 @@ public interface TicketAPI {
               "dueAt": "2026-10-19T10:15:30",
               "resolvedAt": null,
               "closedAt": null,
+              "extensionHours": 0,
+              "deadlineExtensions": [],
               "messages": [
                 {
                   "id": 1,
@@ -221,5 +224,45 @@ public interface TicketAPI {
             @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
 
             @Valid @RequestBody TicketStatusChangeRequest changeRequest
+    );
+
+    @Operation(
+            summary = "Продлить крайний срок заявки",
+            description = "Продлевает крайний срок активной заявки с обязательной причиной. "
+                    + "Исполнитель может продлить только назначенную ему заявку; "
+                    + "руководитель и администратор — любую активную заявку"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Крайний срок продлён",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TicketResponse.class),
+                            examples = @ExampleObject(value = TICKET_JSON))),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(
+                                    value = "{\"message\":\"Причина продления не может быть пустой\"}"))),
+            @ApiResponse(responseCode = "404",
+                    description = "Заявка не найдена или ресурс скрыт",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = {
+                                    @ExampleObject(name = "Не найдена заявка", value = ERROR_404_TICKET_JSON),
+                                    @ExampleObject(name = "Ресурс скрыт", value = ERROR_404_GENERIC_JSON)
+                            })),
+            @ApiResponse(responseCode = "409", description = "Заявка не активна или недостаточно прав",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiError.class),
+                            examples = @ExampleObject(
+                                    value = "{\"message\":\"Продлить крайний срок можно только для активной заявки\"}")))
+    })
+    @PatchMapping("/{id}/deadline")
+    @PreAuthorize("hasAnyRole('AGENT', 'MANAGER', 'ADMIN')")
+    ResponseEntity<TicketResponse> extendDeadline(
+            @Parameter(description = "Уникальный идентификатор заявки", required = true, example = "1")
+            @PathVariable("id")
+            @Min(value = 1, message = "Идентификатор должен быть положительным") Long id,
+
+            @Valid @RequestBody TicketDeadlineExtensionRequest extensionRequest
     );
 }

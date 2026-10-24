@@ -10,6 +10,14 @@ export interface MessageResponse {
   author: UserSummary;
 }
 
+export interface TicketDeadlineExtensionResponse {
+  id: number;
+  hours: number;
+  reason: string;
+  createdAt: string;
+  createdBy: UserSummary;
+}
+
 export interface TicketResponse {
   id: number;
   title: string;
@@ -23,7 +31,14 @@ export interface TicketResponse {
   dueAt: string;
   resolvedAt: string | null;
   closedAt: string | null;
+  extensionHours: number;
+  deadlineExtensions: TicketDeadlineExtensionResponse[];
   messages: MessageResponse[];
+}
+
+export interface TicketDeadlineExtensionRequest {
+  hours: number;
+  reason: string;
 }
 
 export interface TicketCreateRequest {
