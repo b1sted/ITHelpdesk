@@ -24,6 +24,14 @@ import { roleLabels, roleOptions } from '../utils/roleLabels';
 
 type Tab = 'users' | 'departments' | 'categories';
 
+interface UserEditState {
+  id: number;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  departmentId: string;
+}
+
 export function AdminPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('users');
@@ -103,8 +111,7 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editRole, setEditRole] = useState<UserRole>('EMPLOYEE');
+  const [editing, setEditing] = useState<UserEditState | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -148,12 +155,38 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
     }
   };
 
-  const handleRoleChange = async (id: number, role: UserRole) => {
+  const startEditing = (user: UserResponse) => {
+    const department = departments.find((item) => item.name === user.departmentName);
+    setEditing({
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      departmentId: department ? String(department.id) : '',
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editing) {
+      return;
+    }
+    const fullName = editing.fullName.trim();
+    const email = editing.email.trim();
+    if (!fullName || !email || !editing.departmentId) {
+      onError('Заполните имя, email и департамент пользователя');
+      return;
+    }
     try {
-      await updateUser(id, { role });
+      await updateUser(editing.id, {
+        fullName,
+        email,
+        role: editing.role,
+        departmentId: Number(editing.departmentId),
+      });
+      setEditing(null);
       load();
     } catch (err: unknown) {
-      onError(getErrorMessage(err, 'Не удалось изменить роль'));
+      onError(getErrorMessage(err, 'Не удалось сохранить пользователя'));
     }
   };
 
@@ -232,71 +265,110 @@ function UsersTab({ onError }: { onError: (e: string) => void }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td className="px-3 py-2 text-slate-800">{u.fullName}</td>
-                <td className="px-3 py-2 text-slate-500">{u.email}</td>
-                <td className="px-3 py-2 text-slate-500">{u.departmentName}</td>
-                <td className="px-3 py-2">
-                  {editingId === u.id ? (
-                    <select
-                      value={editRole}
-                      onChange={(e) => {
-                        setEditRole(e.target.value as UserRole);
-                      }}
-                      className="rounded border border-slate-300 px-2 py-1 text-sm"
-                    >
-                      {roleOptions.map((r) => (
-                        <option key={r} value={r}>{roleLabels[r]}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="text-slate-700">{roleLabels[u.role] ?? u.role}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {editingId === u.id ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async () => {
-                          await handleRoleChange(u.id, editRole);
-                          setEditingId(null);
-                        }}
-                        className="rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700"
+            {users.map((u) => {
+              const rowEditing = editing?.id === u.id ? editing : null;
+              return (
+                <tr key={u.id}>
+                  <td className="px-3 py-2 text-slate-800">
+                    {rowEditing ? (
+                      <input
+                        value={rowEditing.fullName}
+                        onChange={(e) =>
+                          setEditing({ ...rowEditing, fullName: e.target.value })
+                        }
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      u.fullName
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-slate-500">
+                    {rowEditing ? (
+                      <input
+                        type="email"
+                        value={rowEditing.email}
+                        onChange={(e) =>
+                          setEditing({ ...rowEditing, email: e.target.value })
+                        }
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      u.email
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-slate-500">
+                    {rowEditing ? (
+                      <select
+                        value={rowEditing.departmentId}
+                        onChange={(e) =>
+                          setEditing({ ...rowEditing, departmentId: e.target.value })
+                        }
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
                       >
-                        Сохранить
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="rounded bg-slate-200 px-2 py-1 text-xs text-slate-600"
+                        <option value="">Департамент</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      u.departmentName
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {rowEditing ? (
+                      <select
+                        value={rowEditing.role}
+                        onChange={(e) =>
+                          setEditing({ ...rowEditing, role: e.target.value as UserRole })
+                        }
+                        className="rounded border border-slate-300 px-2 py-1 text-sm"
                       >
-                        Отмена
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        title="Изменить роль"
-                        onClick={() => {
-                          setEditingId(u.id);
-                          setEditRole(u.role);
-                        }}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        title="Удалить"
-                        onClick={() => handleDelete(u.id)}
-                        className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
+                        {roleOptions.map((r) => (
+                          <option key={r} value={r}>{roleLabels[r]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-slate-700">{roleLabels[u.role] ?? u.role}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {rowEditing ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSave}
+                          className="rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700"
+                        >
+                          Сохранить
+                        </button>
+                        <button
+                          onClick={() => setEditing(null)}
+                          className="rounded bg-slate-200 px-2 py-1 text-xs text-slate-600"
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          title="Изменить пользователя"
+                          onClick={() => startEditing(u)}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          title="Удалить"
+                          onClick={() => handleDelete(u.id)}
+                          className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
