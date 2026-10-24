@@ -84,3 +84,7 @@ export interface AgentStatisticsResponse {
   closedTickets: number;
   overdueTickets: number;
 }
+
+export interface SupportSettingsResponse {
+  autoCloseResolvedHours: number;
+}
