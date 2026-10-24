@@ -301,7 +301,7 @@ An agent can always read the thread but may post only when the ticket is assigne
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |
 |:---|:---|:---|:---|:---|
 | `GET` | `/statistics/agents` | Per-agent workload: limit, total, active, resolved, closed and overdue ticket counts | `MANAGER`, `ADMIN` | `200 OK` |
-| `GET` | `/statistics/period` | Created, resolved and closed ticket counts by month (current year) or by year (last five years), plus average resolution time. Optional `granularity=MONTH\|YEAR` | `MANAGER`, `ADMIN` | `200 OK` |
+| `GET` | `/statistics/period` | Created, resolved and closed ticket counts by month (from the first activity month through the current month) or by year (from the first activity year, padded to at least five years with future years), plus average resolution time. Optional `granularity=MONTH\|YEAR` | `MANAGER`, `ADMIN` | `200 OK` |
 
 ### 7.8. Ticket Requests (Release / Reassignment)
 | HTTP Method | Endpoint | Description | Permitted Roles | Expected Status |

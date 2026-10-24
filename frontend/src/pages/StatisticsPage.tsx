@@ -166,7 +166,8 @@ export function StatisticsPage() {
               <div>
                 <h2 className="text-sm font-semibold text-slate-700">Динамика заявок</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Созданные, решённые и закрытые заявки по месяцам текущего года или по годам.
+                  Созданные, решённые и закрытые заявки по месяцам с первой заявки или по годам
+                  (не менее пяти лет).
                 </p>
               </div>
               <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
@@ -405,7 +406,10 @@ function PeriodChart({ data }: { data: PeriodStatisticsResponse }) {
       <div className="overflow-x-auto">
         <div className="flex h-56 min-w-[520px] items-end gap-2">
           {data.buckets.map((bucket) => (
-            <div key={bucket.label} className="flex flex-1 flex-col items-center gap-2">
+            <div
+              key={bucket.label}
+              className="flex min-w-[44px] flex-1 flex-col items-center gap-2"
+            >
               <div className="flex h-44 w-full items-end justify-center gap-1">
                 <Bar
                   value={bucket.created}
