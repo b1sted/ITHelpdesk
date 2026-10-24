@@ -75,11 +75,13 @@ function RequestRow({
   onDecide?: TicketRequestListProps['onDecide'];
 }) {
   const [comment, setComment] = useState('');
-  const [targetAssigneeId, setTargetAssigneeId] = useState('');
+  const [targetAssigneeId, setTargetAssigneeId] = useState(
+    request.targetAssignee ? String(request.targetAssignee.id) : '',
+  );
   const [submitting, setSubmitting] = useState(false);
   const status = statusLabels[request.status];
-  const needsManagerChoice =
-    request.type === 'REASSIGN' && !request.targetAssignee && request.status === 'PENDING';
+  const canChooseTarget = request.type === 'REASSIGN' && request.status === 'PENDING';
+  const targetRequired = canChooseTarget && !targetAssigneeId;
 
   const decide = async (next: 'APPROVED' | 'REJECTED') => {
     if (!onDecide || submitting) {
@@ -119,7 +121,7 @@ function RequestRow({
         Инициатор: {request.requester.fullName}
         {request.targetAssignee
           ? ` · Новый специалист: ${request.targetAssignee.fullName}`
-          : needsManagerChoice
+          : request.type === 'REASSIGN' && request.status === 'PENDING'
             ? ' · Специалиста выбирает руководитель'
             : ''}
       </p>
@@ -131,7 +133,7 @@ function RequestRow({
       )}
       {request.status === 'PENDING' && onDecide && (
         <div className="mt-3 space-y-2">
-          {needsManagerChoice && (
+          {canChooseTarget && (
             <select
               value={targetAssigneeId}
               onChange={(event) => setTargetAssigneeId(event.target.value)}
@@ -156,7 +158,7 @@ function RequestRow({
           />
           <button
             onClick={() => decide('APPROVED')}
-            disabled={submitting || (needsManagerChoice && !targetAssigneeId)}
+            disabled={submitting || targetRequired}
             className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
           >
             Одобрить
