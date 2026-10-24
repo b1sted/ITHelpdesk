@@ -1,5 +1,7 @@
 package ru.basted.ithelpdesk.core.config;
 
+import java.util.Locale;
+
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -37,7 +39,7 @@ public class DBInitializer implements ApplicationRunner {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.adminEmail = adminEmail;
+        this.adminEmail = adminEmail.trim().toLowerCase(Locale.ROOT);
         this.adminPassword = adminPassword;
         this.adminFullName = adminFullName.isBlank() ? DEFAULT_ADMIN_FULL_NAME : adminFullName;
     }
@@ -49,7 +51,7 @@ public class DBInitializer implements ApplicationRunner {
     }
 
     private void seedAdmin() {
-        if (userRepository.existsByEmail(adminEmail)) {
+        if (userRepository.existsByEmailIgnoreCase(adminEmail)) {
             return;
         }
 

@@ -52,7 +52,7 @@ class DBInitializerTest {
     void createsOnlyAdminAccountWhenItIsMissing() {
         Department department = new Department();
         department.setName("IT Service Desk");
-        when(userRepository.existsByEmail("admin@company.ru")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("admin@company.ru")).thenReturn(false);
         when(departmentRepository.findByName("IT Service Desk"))
                 .thenReturn(Optional.of(department));
         when(passwordEncoder.encode("Admin2024!")).thenReturn("encoded");
@@ -71,7 +71,7 @@ class DBInitializerTest {
 
     @Test
     void doesNothingWhenAdminAlreadyExists() {
-        when(userRepository.existsByEmail("admin@company.ru")).thenReturn(true);
+        when(userRepository.existsByEmailIgnoreCase("admin@company.ru")).thenReturn(true);
 
         initializer.run(applicationArguments);
 

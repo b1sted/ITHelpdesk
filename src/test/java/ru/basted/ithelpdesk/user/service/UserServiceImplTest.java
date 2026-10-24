@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -83,13 +84,42 @@ class UserServiceImplTest {
 
     @Test
     void createUserWithDuplicateEmailThrowsConflict() {
-        when(repository.existsByEmail("ivanov@company.ru")).thenReturn(true);
+        when(repository.existsByEmailIgnoreCase("ivanov@company.ru")).thenReturn(true);
 
         UserCreateRequest request = new UserCreateRequest(
                 "Иванов Иван", "ivanov@company.ru", "password123", UserRole.EMPLOYEE, 1L
         );
 
         assertThrows(ConflictException.class, () -> service.createUser(request));
+    }
+
+    @Test
+    void createUserStoresNormalizedEmail() {
+        User user = user();
+        when(repository.existsByEmailIgnoreCase("new@company.ru")).thenReturn(false);
+        when(departmentRepository.findById(1L)).thenReturn(Optional.of(department()));
+        when(mapper.toEntity(any(UserCreateRequest.class))).thenReturn(user);
+        when(passwordEncoder.encode("password123")).thenReturn("encoded");
+        when(repository.save(user)).thenReturn(user);
+
+        var response = service.createUser(new UserCreateRequest(
+                "Иванов Иван", "  New@Company.RU  ", "password123", UserRole.EMPLOYEE, 1L
+        ));
+
+        assertEquals("new@company.ru", response.email());
+    }
+
+    @Test
+    void updateUserStoresNormalizedEmail() {
+        User user = user();
+        when(repository.findById(1L)).thenReturn(Optional.of(user));
+        when(repository.existsByEmailIgnoreCase("new@company.ru")).thenReturn(false);
+
+        var response = service.updateUser(
+                1L, new UserUpdateRequest(null, " NEW@Company.RU ", null, null)
+        );
+
+        assertEquals("new@company.ru", response.email());
     }
 
     private User user() {
