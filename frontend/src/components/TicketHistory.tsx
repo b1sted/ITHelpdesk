@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, History } from 'lucide-react';
 import type {
+  TicketClosureResponse,
   TicketDeadlineExtensionResponse,
   TicketRequestResponse,
 } from '../types/ticket';
@@ -10,12 +11,13 @@ import { TicketRequestList } from './TicketRequestList';
 interface TicketHistoryProps {
   requests: TicketRequestResponse[];
   extensions: TicketDeadlineExtensionResponse[];
+  closure?: TicketClosureResponse | null;
 }
 
-export function TicketHistory({ requests, extensions }: TicketHistoryProps) {
+export function TicketHistory({ requests, extensions, closure }: TicketHistoryProps) {
   const [open, setOpen] = useState(false);
   const decidedRequests = requests.filter((request) => request.status !== 'PENDING');
-  const total = decidedRequests.length + extensions.length;
+  const total = decidedRequests.length + extensions.length + (closure ? 1 : 0);
 
   if (total === 0) {
     return null;
@@ -49,6 +51,26 @@ export function TicketHistory({ requests, extensions }: TicketHistoryProps) {
                 Запросы по заявке
               </h3>
               <TicketRequestList requests={decidedRequests} />
+            </div>
+          )}
+
+          {closure && (
+            <div>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Закрытие заявки
+              </h3>
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-sm font-medium text-slate-800">
+                    Закрыта специалистом
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {formatDateTime(closure.createdAt)}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-slate-600">{closure.reason}</p>
+                <p className="mt-1 text-xs text-slate-400">{closure.closedBy.fullName}</p>
+              </div>
             </div>
           )}
 

@@ -18,6 +18,13 @@ export interface TicketDeadlineExtensionResponse {
   createdBy: UserSummary;
 }
 
+export interface TicketClosureResponse {
+  id: number;
+  reason: string;
+  createdAt: string;
+  closedBy: UserSummary;
+}
+
 export interface TicketResponse {
   id: number;
   title: string;
@@ -34,6 +41,7 @@ export interface TicketResponse {
   extensionHours: number;
   deadlineExtensions: TicketDeadlineExtensionResponse[];
   messages: MessageResponse[];
+  closure: TicketClosureResponse | null;
 }
 
 export interface TicketDeadlineExtensionRequest {
