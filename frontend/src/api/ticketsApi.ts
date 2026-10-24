@@ -2,6 +2,7 @@ import { client } from './client';
 import type {
   MessageResponse,
   TicketCreateRequest,
+  TicketDeadlineExtensionRequest,
   TicketResponse,
   TicketStatus,
   TicketStatusChangeRequest,
@@ -34,6 +35,14 @@ export async function changeTicketStatus(
   data: TicketStatusChangeRequest,
 ): Promise<TicketResponse> {
   const response = await client.patch<TicketResponse>(`/tickets/${id}/status`, data);
+  return response.data;
+}
+
+export async function extendTicketDeadline(
+  id: number,
+  data: TicketDeadlineExtensionRequest,
+): Promise<TicketResponse> {
+  const response = await client.patch<TicketResponse>(`/tickets/${id}/deadline`, data);
   return response.data;
 }
 

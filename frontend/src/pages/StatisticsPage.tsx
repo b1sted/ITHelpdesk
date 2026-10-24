@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { BarChart3, Ticket, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../api/errorMessage';
-import { getAgentStatistics } from '../api/statisticsApi';
-import { updateAgentLimits } from '../api/adminApi';
+import {
+  getAgentStatistics,
+  getSupportSettings,
+  updateSupportSettings,
+} from '../api/statisticsApi';
+import { getAgents, updateAgentLimits } from '../api/adminApi';
 import {
   decideTicketRequest,
   getTicketRequestsByStatus,
@@ -14,20 +18,31 @@ import type {
   TicketRequestResponse,
   TicketRequestStatus,
 } from '../types/ticket';
+import type { UserResponse } from '../types/user';
 
 export function StatisticsPage() {
   const [statistics, setStatistics] = useState<AgentStatisticsResponse[]>([]);
   const [requests, setRequests] = useState<TicketRequestResponse[]>([]);
+  const [agents, setAgents] = useState<UserResponse[]>([]);
+  const [autoCloseHours, setAutoCloseHours] = useState('0');
+  const [autoCloseSaving, setAutoCloseSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([getAgentStatistics(), getTicketRequestsByStatus('PENDING')])
-      .then(([stats, pending]) => {
+    Promise.all([
+      getAgentStatistics(),
+      getTicketRequestsByStatus('PENDING'),
+      getAgents(),
+      getSupportSettings(),
+    ])
+      .then(([stats, pending, agentList, settings]) => {
         setError('');
         setStatistics(stats);
         setRequests(pending);
+        setAgents(agentList);
+        setAutoCloseHours(String(settings.autoCloseResolvedHours));
       })
       .catch(() => setError('Не удалось загрузить статистику'))
       .finally(() => setLoading(false));
@@ -35,13 +50,32 @@ export function StatisticsPage() {
 
   useEffect(load, [load]);
 
+  const handleSaveAutoClose = async () => {
+    const hours = Number(autoCloseHours);
+    if (!Number.isInteger(hours) || hours < 0 || hours > 8760) {
+      setError('Срок автозакрытия должен быть целым числом от 0 до 8760 часов');
+      return;
+    }
+    setAutoCloseSaving(true);
+    try {
+      const settings = await updateSupportSettings(hours);
+      setAutoCloseHours(String(settings.autoCloseResolvedHours));
+      setError('');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Не удалось сохранить настройки автозакрытия'));
+    } finally {
+      setAutoCloseSaving(false);
+    }
+  };
+
   const handleDecide = async (
     requestId: number,
     status: Exclude<TicketRequestStatus, 'PENDING'>,
     comment?: string,
+    targetAssigneeId?: number,
   ) => {
     try {
-      await decideTicketRequest(requestId, { status, comment });
+      await decideTicketRequest(requestId, { status, comment, targetAssigneeId });
       load();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Не удалось сохранить решение по запросу'));
@@ -79,6 +113,36 @@ export function StatisticsPage() {
         <p className="py-8 text-center text-sm text-slate-400">Загрузка...</p>
       ) : (
         <div className="space-y-6">
+          <section className="rounded-lg bg-white p-5 shadow">
+            <h2 className="mb-1 text-sm font-semibold text-slate-700">
+              Автозакрытие решённых заявок
+            </h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Заявка в статусе «Решена» будет закрыта автоматически, если сотрудник не подтвердил
+              решение. Укажите 0, чтобы отключить автозакрытие.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block text-xs uppercase text-slate-400">Срок, часов</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={8760}
+                  value={autoCloseHours}
+                  onChange={(event) => setAutoCloseHours(event.target.value)}
+                  className="w-32 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                />
+              </label>
+              <button
+                onClick={handleSaveAutoClose}
+                disabled={autoCloseSaving}
+                className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+              >
+                {autoCloseSaving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </section>
+
           <section className="rounded-lg bg-white p-5 shadow">
             <h2 className="mb-3 text-sm font-semibold text-slate-700">Специалисты поддержки</h2>
             <div className="overflow-x-auto">
@@ -146,6 +210,7 @@ export function StatisticsPage() {
             </h2>
             <TicketRequestList
               requests={requests}
+              agents={agents}
               showTicket
               onDecide={handleDecide}
             />

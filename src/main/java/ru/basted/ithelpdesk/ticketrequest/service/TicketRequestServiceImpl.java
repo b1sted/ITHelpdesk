@@ -76,10 +76,7 @@ public class TicketRequestServiceImpl implements TicketRequestService {
         }
 
         User target = null;
-        if (request.type() == TicketRequestType.REASSIGN) {
-            if (request.targetAssigneeId() == null) {
-                throw new ConflictException("Для переназначения требуется выбрать специалиста");
-            }
+        if (request.type() == TicketRequestType.REASSIGN && request.targetAssigneeId() != null) {
             target = findAgent(request.targetAssigneeId());
             if (target.getId().equals(requester.getId())) {
                 throw new ConflictException("Нельзя переназначить заявку на самого себя");
@@ -142,7 +139,7 @@ public class TicketRequestServiceImpl implements TicketRequestService {
         }
 
         if (decision.status() == TicketRequestStatus.APPROVED) {
-            applyApprovedRequest(request);
+            applyApprovedRequest(request, decision);
         }
 
         request.setStatus(decision.status());
@@ -153,7 +150,7 @@ public class TicketRequestServiceImpl implements TicketRequestService {
         return toResponse(repository.save(request));
     }
 
-    private void applyApprovedRequest(TicketRequest request) {
+    private void applyApprovedRequest(TicketRequest request, TicketRequestDecisionRequest decision) {
         Ticket ticket = request.getTicket();
 
         if (!AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus())
@@ -168,13 +165,29 @@ public class TicketRequestServiceImpl implements TicketRequestService {
             ticket.setAssignee(null);
             ticket.setStatus(TicketStatus.NEW);
         } else {
-            User target = request.getTargetAssignee();
+            User target = resolveTargetAssignee(request, decision);
             capacityPolicy.checkCanAssign(target);
             ticket.setAssignee(target);
             ticket.setStatus(TicketStatus.IN_PROGRESS);
+            request.setTargetAssignee(target);
         }
 
         ticketRepository.save(ticket);
+    }
+
+    private User resolveTargetAssignee(TicketRequest request, TicketRequestDecisionRequest decision) {
+        User target = decision.targetAssigneeId() == null
+                ? request.getTargetAssignee()
+                : findAgent(decision.targetAssigneeId());
+
+        if (target == null) {
+            throw new ConflictException("Выберите специалиста для переназначения");
+        }
+        if (target.getId().equals(request.getRequester().getId())) {
+            throw new ConflictException("Нельзя переназначить заявку на самого себя");
+        }
+
+        return target;
     }
 
     private void ensureTicketExists(Long ticketId) {

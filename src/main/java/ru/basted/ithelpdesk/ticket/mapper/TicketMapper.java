@@ -10,6 +10,9 @@ import ru.basted.ithelpdesk.ticket.entity.Ticket;
 public interface TicketMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "resolvedAt", ignore = true)
+    @Mapping(target = "closedAt", ignore = true)
+    @Mapping(target = "extensionHours", ignore = true)
     @Mapping(target = "creator", ignore = true)
     @Mapping(target = "assignee", ignore = true)
     @Mapping(target = "category", ignore = true)

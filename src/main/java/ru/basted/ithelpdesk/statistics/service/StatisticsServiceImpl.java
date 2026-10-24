@@ -14,6 +14,7 @@ import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
+import ru.basted.ithelpdesk.ticket.service.TicketSlaPolicy;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
@@ -51,10 +52,6 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private AgentStatisticsResponse toResponse(User agent, List<Ticket> tickets, LocalDateTime now) {
-        long timeLimitHours = agent.getTimeLimitHours() == null
-                ? overdueHours
-                : agent.getTimeLimitHours();
-
         long active = tickets.stream()
                 .filter(ticket -> AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()))
                 .count();
@@ -65,8 +62,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .filter(ticket -> ticket.getStatus() == TicketStatus.CLOSED)
                 .count();
         long overdue = tickets.stream()
-                .filter(ticket -> AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()))
-                .filter(ticket -> now.isAfter(ticket.getCreatedAt().plusHours(timeLimitHours)))
+                .filter(ticket -> TicketSlaPolicy.isOverdue(ticket, overdueHours, now))
                 .count();
 
         return new AgentStatisticsResponse(

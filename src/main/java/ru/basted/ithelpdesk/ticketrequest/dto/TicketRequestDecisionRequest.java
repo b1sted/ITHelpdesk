@@ -15,5 +15,9 @@ public record TicketRequestDecisionRequest(
 
     @Size(max = 1000, message = "Комментарий не может быть длиннее 1000 символов")
     @Schema(description = "Комментарий руководителя к решению", example = "Согласовано")
-    String comment
+    String comment,
+
+    @Schema(description = "Специалист, выбранный руководителем при одобрении переназначения. "
+            + "Необязателен, если специалист уже указан в запросе", example = "3")
+    Long targetAssigneeId
 ) {}

@@ -20,7 +20,7 @@ public record TicketRequestCreateRequest(
             example = "Требуется профильная экспертиза другого специалиста")
     String reason,
 
-    @Schema(description = "Идентификатор специалиста для переназначения (обязателен для REASSIGN)",
-            example = "3")
+    @Schema(description = "Идентификатор специалиста для переназначения. Для REASSIGN необязателен: "
+            + "если не указан, специалиста выбирает руководитель", example = "3")
     Long targetAssigneeId
 ) {}

@@ -74,6 +74,7 @@ public class DBInitializer implements ApplicationRunner {
         refreshTicketStatusConstraint();
         refreshUserRoleConstraint();
         migrateAgentLimits();
+        migrateTicketExtensions();
         Department department = seedDepartment();
         seedCategories();
         seedAdmin(department);
@@ -96,6 +97,11 @@ public class DBInitializer implements ApplicationRunner {
         jdbcTemplate.execute(
                 "UPDATE users SET time_limit_hours = 24 WHERE time_limit_hours IS NULL AND role = 'AGENT'"
         );
+    }
+
+    private void migrateTicketExtensions() {
+        jdbcTemplate.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS extension_hours INTEGER");
+        jdbcTemplate.execute("UPDATE tickets SET extension_hours = 0 WHERE extension_hours IS NULL");
     }
 
     private Department seedDepartment() {

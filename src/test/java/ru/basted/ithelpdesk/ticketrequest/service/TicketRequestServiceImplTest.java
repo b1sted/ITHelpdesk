@@ -2,6 +2,7 @@ package ru.basted.ithelpdesk.ticketrequest.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import ru.basted.ithelpdesk.category.entity.Category;
+import ru.basted.ithelpdesk.core.exception.ConflictException;
 import ru.basted.ithelpdesk.core.model.BaseEntity;
 import ru.basted.ithelpdesk.core.security.CurrentUser;
 import ru.basted.ithelpdesk.department.entity.Department;
@@ -99,7 +101,7 @@ class TicketRequestServiceImplTest {
         when(currentUser.get()).thenReturn(manager);
         when(repository.save(request)).thenReturn(request);
 
-        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, "Согласовано"));
+        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, "Согласовано", null));
 
         assertEquals(TicketStatus.NEW, ticket.getStatus());
         assertNull(ticket.getAssignee());
@@ -119,11 +121,50 @@ class TicketRequestServiceImplTest {
         when(currentUser.get()).thenReturn(manager);
         when(repository.save(request)).thenReturn(request);
 
-        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null));
+        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null, null));
 
         assertEquals(TicketStatus.IN_PROGRESS, ticket.getStatus());
         assertEquals(3L, ticket.getAssignee().getId());
         verify(capacityPolicy).checkCanAssign(target);
+    }
+
+    @Test
+    void approvedReassignWithoutTargetUsesManagerChoice() {
+        User requester = user(2L, UserRole.AGENT);
+        User target = user(3L, UserRole.AGENT);
+        User manager = user(5L, UserRole.MANAGER);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), requester);
+        TicketRequest request = request(TicketRequestType.REASSIGN, requester, null, ticket);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(request));
+        when(currentUser.get()).thenReturn(manager);
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(repository.save(request)).thenReturn(request);
+
+        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null, 3L));
+
+        assertEquals(TicketStatus.IN_PROGRESS, ticket.getStatus());
+        assertEquals(3L, ticket.getAssignee().getId());
+        assertEquals(3L, request.getTargetAssignee().getId());
+        verify(capacityPolicy).checkCanAssign(target);
+    }
+
+    @Test
+    void approvedReassignWithoutAnyTargetThrowsConflict() {
+        User requester = user(2L, UserRole.AGENT);
+        User manager = user(5L, UserRole.MANAGER);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), requester);
+        TicketRequest request = request(TicketRequestType.REASSIGN, requester, null, ticket);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(request));
+        when(currentUser.get()).thenReturn(manager);
+
+        assertThrows(
+                ConflictException.class,
+                () -> service.decide(
+                        10L, new TicketRequestDecisionRequest(TicketRequestStatus.APPROVED, null, null)
+                )
+        );
     }
 
     @Test
@@ -137,7 +178,7 @@ class TicketRequestServiceImplTest {
         when(currentUser.get()).thenReturn(manager);
         when(repository.save(request)).thenReturn(request);
 
-        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.REJECTED, "Нет оснований"));
+        service.decide(10L, new TicketRequestDecisionRequest(TicketRequestStatus.REJECTED, "Нет оснований", null));
 
         assertEquals(TicketStatus.IN_PROGRESS, ticket.getStatus());
         assertEquals(2L, ticket.getAssignee().getId());

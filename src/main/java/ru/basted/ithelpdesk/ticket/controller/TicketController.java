@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import ru.basted.ithelpdesk.ticket.dto.TicketCreateRequest;
+import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketResponse;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
@@ -46,5 +47,13 @@ public class TicketController implements TicketAPI {
     @Override
     public ResponseEntity<TicketResponse> changeStatus(Long id, TicketStatusChangeRequest changeRequest) {
         return ResponseEntity.ok(service.changeStatus(id, changeRequest));
+    }
+
+    @Override
+    public ResponseEntity<TicketResponse> extendDeadline(
+            Long id,
+            TicketDeadlineExtensionRequest extensionRequest
+    ) {
+        return ResponseEntity.ok(service.extendDeadline(id, extensionRequest));
     }
 }
