@@ -1,16 +1,15 @@
 package ru.basted.ithelpdesk.statistics.service;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +17,12 @@ import ru.basted.ithelpdesk.statistics.dto.AgentStatisticsResponse;
 import ru.basted.ithelpdesk.statistics.dto.PeriodBucketResponse;
 import ru.basted.ithelpdesk.statistics.dto.PeriodStatisticsResponse;
 import ru.basted.ithelpdesk.statistics.dto.StatisticsGranularity;
-import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
+import ru.basted.ithelpdesk.ticket.repository.AgentOverdueCounts;
+import ru.basted.ithelpdesk.ticket.repository.AgentTicketCounts;
+import ru.basted.ithelpdesk.ticket.repository.PeriodTicketCounts;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
-import ru.basted.ithelpdesk.ticket.service.TicketSlaPolicy;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
 import ru.basted.ithelpdesk.user.repository.UserRepository;
@@ -31,176 +31,159 @@ import ru.basted.ithelpdesk.user.repository.UserRepository;
 public class StatisticsServiceImpl implements StatisticsService {
     private final UserRepository userRepository;
     private final TicketRepository ticketRepository;
-    private final long overdueHours;
 
     public StatisticsServiceImpl(
             UserRepository userRepository,
-            TicketRepository ticketRepository,
-            @Value("${app.ticket.overdue-hours:24}") long overdueHours
+            TicketRepository ticketRepository
     ) {
         this.userRepository = userRepository;
         this.ticketRepository = ticketRepository;
-        this.overdueHours = overdueHours;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AgentStatisticsResponse> getAgentStatistics() {
-        Map<Long, List<Ticket>> ticketsByAgent = ticketRepository.findAllByOrderByCreatedAtDesc()
+        Map<Long, AgentTicketCounts> countsByAgent = ticketRepository.countTicketsByAssignee(
+                        AgentCapacityPolicy.ACTIVE_STATUSES,
+                        TicketStatus.RESOLVED,
+                        TicketStatus.CLOSED
+                )
                 .stream()
-                .filter(ticket -> ticket.getAssignee() != null)
-                .collect(Collectors.groupingBy(ticket -> ticket.getAssignee().getId()));
+                .collect(Collectors.toMap(AgentTicketCounts::getAgentId, counts -> counts));
 
-        LocalDateTime now = LocalDateTime.now();
+        Map<Long, Long> overdueByAgent = ticketRepository
+                .countOverdueTicketsByAssignee(LocalDateTime.now())
+                .stream()
+                .collect(Collectors.toMap(AgentOverdueCounts::getAgentId, AgentOverdueCounts::getOverdue));
 
         return userRepository.findAllByRoleOrderByFullNameAsc(UserRole.AGENT)
                 .stream()
-                .map(agent -> toResponse(agent, ticketsByAgent.getOrDefault(agent.getId(), List.of()), now))
+                .map(agent -> toResponse(
+                        agent,
+                        countsByAgent.get(agent.getId()),
+                        overdueByAgent.getOrDefault(agent.getId(), 0L)
+                ))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public PeriodStatisticsResponse getPeriodStatistics(StatisticsGranularity granularity) {
-        List<Ticket> tickets = ticketRepository.findAllByOrderByCreatedAtDesc();
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime firstCreatedAt = ticketRepository.findFirstCreatedAt();
 
         return granularity == StatisticsGranularity.YEAR
-                ? buildYearStatistics(tickets, now)
-                : buildMonthStatistics(tickets, now);
+                ? buildYearStatistics(firstCreatedAt, now)
+                : buildMonthStatistics(firstCreatedAt, now);
     }
 
-    private PeriodStatisticsResponse buildMonthStatistics(List<Ticket> tickets, LocalDateTime now) {
+    private PeriodStatisticsResponse buildMonthStatistics(
+            LocalDateTime firstCreatedAt,
+            LocalDateTime now
+    ) {
         YearMonth currentMonth = YearMonth.from(now);
-        YearMonth firstMonth = tickets.isEmpty()
+        YearMonth firstMonth = firstCreatedAt == null
                 ? YearMonth.of(now.getYear(), 1)
-                : YearMonth.from(firstActivity(tickets, now));
+                : YearMonth.from(firstCreatedAt);
         YearMonth startMonth = firstMonth.isAfter(currentMonth) ? currentMonth : firstMonth;
-        YearMonth endMonth = tickets.isEmpty()
+        YearMonth endMonth = firstCreatedAt == null
                 ? YearMonth.of(now.getYear(), 12)
                 : currentMonth;
         boolean multiYear = startMonth.getYear() != endMonth.getYear();
         Locale russian = Locale.forLanguageTag("ru");
         int bucketCount = (int) ChronoUnit.MONTHS.between(startMonth, endMonth) + 1;
-        Bucket[] buckets = new Bucket[bucketCount];
 
+        Map<YearMonth, Long> created = toMonthCounts(ticketRepository.countCreatedByPeriod("month"));
+        Map<YearMonth, Long> resolved = toMonthCounts(ticketRepository.countResolvedByPeriod("month"));
+        Map<YearMonth, Long> closed = toMonthCounts(ticketRepository.countClosedByPeriod("month"));
+
+        List<PeriodBucketResponse> responses = new ArrayList<>(bucketCount);
         for (int index = 0; index < bucketCount; index++) {
             YearMonth month = startMonth.plusMonths(index);
             String label = month.getMonth().getDisplayName(TextStyle.SHORT, russian);
             if (multiYear) {
                 label = label + " " + String.format("%02d", month.getYear() % 100);
             }
-            buckets[index] = new Bucket(label);
+            responses.add(new PeriodBucketResponse(
+                    label,
+                    created.getOrDefault(month, 0L),
+                    resolved.getOrDefault(month, 0L),
+                    closed.getOrDefault(month, 0L)
+            ));
         }
 
         LocalDateTime from = startMonth.atDay(1).atStartOfDay();
         LocalDateTime to = endMonth.plusMonths(1).atDay(1).atStartOfDay();
 
-        for (Ticket ticket : tickets) {
-            addToMonthBucket(buckets, ticket.getCreatedAt(), startMonth, Bucket::markCreated);
-            addToMonthBucket(buckets, ticket.getResolvedAt(), startMonth, Bucket::markResolved);
-            addToMonthBucket(buckets, ticket.getClosedAt(), startMonth, Bucket::markClosed);
-        }
-
-        return toPeriodResponse(StatisticsGranularity.MONTH, buckets, tickets, from, to);
+        return toPeriodResponse(StatisticsGranularity.MONTH, responses, from, to);
     }
 
-    private PeriodStatisticsResponse buildYearStatistics(List<Ticket> tickets, LocalDateTime now) {
+    private PeriodStatisticsResponse buildYearStatistics(
+            LocalDateTime firstCreatedAt,
+            LocalDateTime now
+    ) {
         int currentYear = now.getYear();
-        int firstYear = tickets.isEmpty()
+        int firstYear = firstCreatedAt == null
                 ? currentYear
-                : Math.min(firstActivity(tickets, now).getYear(), currentYear);
+                : Math.min(firstCreatedAt.getYear(), currentYear);
         int endYear = Math.max(currentYear, firstYear + 4);
-        int bucketCount = endYear - firstYear + 1;
-        Bucket[] buckets = new Bucket[bucketCount];
 
-        for (int index = 0; index < bucketCount; index++) {
-            buckets[index] = new Bucket(String.valueOf(firstYear + index));
+        Map<Integer, Long> created = toYearCounts(ticketRepository.countCreatedByPeriod("year"));
+        Map<Integer, Long> resolved = toYearCounts(ticketRepository.countResolvedByPeriod("year"));
+        Map<Integer, Long> closed = toYearCounts(ticketRepository.countClosedByPeriod("year"));
+
+        List<PeriodBucketResponse> responses = new ArrayList<>(endYear - firstYear + 1);
+        for (int year = firstYear; year <= endYear; year++) {
+            responses.add(new PeriodBucketResponse(
+                    String.valueOf(year),
+                    created.getOrDefault(year, 0L),
+                    resolved.getOrDefault(year, 0L),
+                    closed.getOrDefault(year, 0L)
+            ));
         }
 
         LocalDateTime from = LocalDateTime.of(firstYear, 1, 1, 0, 0);
         LocalDateTime to = LocalDateTime.of(endYear + 1, 1, 1, 0, 0);
 
-        for (Ticket ticket : tickets) {
-            addToBucket(buckets, ticket.getCreatedAt(), firstYear, Bucket::markCreated);
-            addToBucket(buckets, ticket.getResolvedAt(), firstYear, Bucket::markResolved);
-            addToBucket(buckets, ticket.getClosedAt(), firstYear, Bucket::markClosed);
-        }
-
-        return toPeriodResponse(StatisticsGranularity.YEAR, buckets, tickets, from, to);
+        return toPeriodResponse(StatisticsGranularity.YEAR, responses, from, to);
     }
 
-    private LocalDateTime firstActivity(List<Ticket> tickets, LocalDateTime fallback) {
-        return tickets.stream()
-                .map(Ticket::getCreatedAt)
-                .filter(date -> date != null)
-                .min(LocalDateTime::compareTo)
-                .orElse(fallback);
+    private Map<YearMonth, Long> toMonthCounts(List<PeriodTicketCounts> counts) {
+        return counts.stream()
+                .collect(Collectors.toMap(
+                        count -> YearMonth.from(count.getBucket()),
+                        PeriodTicketCounts::getTotal,
+                        Long::sum
+                ));
     }
 
-    private void addToMonthBucket(
-            Bucket[] buckets,
-            LocalDateTime date,
-            YearMonth startMonth,
-            BucketAction action
-    ) {
-        if (date == null) {
-            return;
-        }
-        long index = ChronoUnit.MONTHS.between(startMonth, YearMonth.from(date));
-        if (index < 0 || index >= buckets.length) {
-            return;
-        }
-        action.apply(buckets[(int) index], date);
-    }
-
-    private void addToBucket(
-            Bucket[] buckets,
-            LocalDateTime date,
-            int startYear,
-            BucketAction action
-    ) {
-        if (date == null) {
-            return;
-        }
-        int index = date.getYear() - startYear;
-        if (index < 0 || index >= buckets.length) {
-            return;
-        }
-        action.apply(buckets[index], date);
+    private Map<Integer, Long> toYearCounts(List<PeriodTicketCounts> counts) {
+        return counts.stream()
+                .collect(Collectors.toMap(
+                        count -> count.getBucket().getYear(),
+                        PeriodTicketCounts::getTotal,
+                        Long::sum
+                ));
     }
 
     private PeriodStatisticsResponse toPeriodResponse(
             StatisticsGranularity granularity,
-            Bucket[] buckets,
-            List<Ticket> tickets,
+            List<PeriodBucketResponse> buckets,
             LocalDateTime from,
             LocalDateTime to
     ) {
-        List<PeriodBucketResponse> responses = java.util.Arrays.stream(buckets)
-                .map(Bucket::toResponse)
-                .toList();
+        long totalCreated = buckets.stream().mapToLong(PeriodBucketResponse::created).sum();
+        long totalResolved = buckets.stream().mapToLong(PeriodBucketResponse::resolved).sum();
+        long totalClosed = buckets.stream().mapToLong(PeriodBucketResponse::closed).sum();
 
-        long totalCreated = responses.stream().mapToLong(PeriodBucketResponse::created).sum();
-        long totalResolved = responses.stream().mapToLong(PeriodBucketResponse::resolved).sum();
-        long totalClosed = responses.stream().mapToLong(PeriodBucketResponse::closed).sum();
-
-        double averageResolutionHours = tickets.stream()
-                .filter(ticket -> ticket.getResolvedAt() != null)
-                .filter(ticket -> !ticket.getResolvedAt().isBefore(from)
-                        && ticket.getResolvedAt().isBefore(to))
-                .mapToLong(ticket -> Duration.between(
-                        ticket.getCreatedAt(), ticket.getResolvedAt()
-                ).toMinutes())
-                .average()
-                .stream()
-                .map(minutes -> Math.round(minutes / 60.0 * 10.0) / 10.0)
-                .findFirst()
-                .orElse(0.0);
+        Double average = ticketRepository.averageResolutionHours(from, to);
+        double averageResolutionHours = average == null
+                ? 0.0
+                : Math.round(average * 10.0) / 10.0;
 
         return new PeriodStatisticsResponse(
                 granularity,
-                responses,
+                buckets,
                 totalCreated,
                 totalResolved,
                 totalClosed,
@@ -208,19 +191,15 @@ public class StatisticsServiceImpl implements StatisticsService {
         );
     }
 
-    private AgentStatisticsResponse toResponse(User agent, List<Ticket> tickets, LocalDateTime now) {
-        long active = tickets.stream()
-                .filter(ticket -> AgentCapacityPolicy.ACTIVE_STATUSES.contains(ticket.getStatus()))
-                .count();
-        long resolved = tickets.stream()
-                .filter(ticket -> ticket.getStatus() == TicketStatus.RESOLVED)
-                .count();
-        long closed = tickets.stream()
-                .filter(ticket -> ticket.getStatus() == TicketStatus.CLOSED)
-                .count();
-        long overdue = tickets.stream()
-                .filter(ticket -> TicketSlaPolicy.isOverdue(ticket, overdueHours, now))
-                .count();
+    private AgentStatisticsResponse toResponse(
+            User agent,
+            AgentTicketCounts counts,
+            long overdue
+    ) {
+        long total = counts == null ? 0 : counts.getTotal();
+        long active = counts == null ? 0 : counts.getActive();
+        long resolved = counts == null ? 0 : counts.getResolved();
+        long closed = counts == null ? 0 : counts.getClosed();
 
         return new AgentStatisticsResponse(
                 agent.getId(),
@@ -229,43 +208,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                 agent.getDepartment().getName(),
                 agent.getTicketLimit(),
                 agent.getTimeLimitHours(),
-                tickets.size(),
+                total,
                 active,
                 resolved,
                 closed,
                 overdue
         );
-    }
-
-    @FunctionalInterface
-    private interface BucketAction {
-        void apply(Bucket bucket, LocalDateTime date);
-    }
-
-    private static final class Bucket {
-        private final String label;
-        private long created;
-        private long resolved;
-        private long closed;
-
-        private Bucket(String label) {
-            this.label = label;
-        }
-
-        private void markCreated(LocalDateTime date) {
-            created++;
-        }
-
-        private void markResolved(LocalDateTime date) {
-            resolved++;
-        }
-
-        private void markClosed(LocalDateTime date) {
-            closed++;
-        }
-
-        private PeriodBucketResponse toResponse() {
-            return new PeriodBucketResponse(label, created, resolved, closed);
-        }
     }
 }
