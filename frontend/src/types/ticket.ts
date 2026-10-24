@@ -66,6 +66,7 @@ export interface TicketRequestCreateRequest {
 export interface TicketRequestDecisionRequest {
   status: Exclude<TicketRequestStatus, 'PENDING'>;
   comment?: string;
+  targetAssigneeId?: number;
 }
 
 export interface AgentStatisticsResponse {

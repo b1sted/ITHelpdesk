@@ -3,7 +3,7 @@ import { BarChart3, Ticket, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../api/errorMessage';
 import { getAgentStatistics } from '../api/statisticsApi';
-import { updateAgentLimits } from '../api/adminApi';
+import { getAgents, updateAgentLimits } from '../api/adminApi';
 import {
   decideTicketRequest,
   getTicketRequestsByStatus,
@@ -14,20 +14,23 @@ import type {
   TicketRequestResponse,
   TicketRequestStatus,
 } from '../types/ticket';
+import type { UserResponse } from '../types/user';
 
 export function StatisticsPage() {
   const [statistics, setStatistics] = useState<AgentStatisticsResponse[]>([]);
   const [requests, setRequests] = useState<TicketRequestResponse[]>([]);
+  const [agents, setAgents] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([getAgentStatistics(), getTicketRequestsByStatus('PENDING')])
-      .then(([stats, pending]) => {
+    Promise.all([getAgentStatistics(), getTicketRequestsByStatus('PENDING'), getAgents()])
+      .then(([stats, pending, agentList]) => {
         setError('');
         setStatistics(stats);
         setRequests(pending);
+        setAgents(agentList);
       })
       .catch(() => setError('Не удалось загрузить статистику'))
       .finally(() => setLoading(false));
@@ -39,9 +42,10 @@ export function StatisticsPage() {
     requestId: number,
     status: Exclude<TicketRequestStatus, 'PENDING'>,
     comment?: string,
+    targetAssigneeId?: number,
   ) => {
     try {
-      await decideTicketRequest(requestId, { status, comment });
+      await decideTicketRequest(requestId, { status, comment, targetAssigneeId });
       load();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Не удалось сохранить решение по запросу'));
@@ -146,6 +150,7 @@ export function StatisticsPage() {
             </h2>
             <TicketRequestList
               requests={requests}
+              agents={agents}
               showTicket
               onDecide={handleDecide}
             />

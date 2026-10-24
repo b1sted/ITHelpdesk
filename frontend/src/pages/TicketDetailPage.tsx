@@ -77,7 +77,7 @@ export function TicketDetailPage() {
     Promise.all([
       getTicket(ticketId),
       canViewRequests ? getTicketRequests(ticketId) : Promise.resolve([]),
-      isAgent ? getAgents() : Promise.resolve([]),
+      canViewRequests ? getAgents() : Promise.resolve([]),
     ])
       .then(([data, ticketRequests, agentList]) => {
         if (!cancelled) {
@@ -99,7 +99,7 @@ export function TicketDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [ticketId, canViewRequests, isAgent]);
+  }, [ticketId, canViewRequests]);
 
   if (loading) {
     return <p className="py-10 text-center text-sm text-slate-400">Загрузка...</p>;
@@ -157,10 +157,6 @@ export function TicketDetailPage() {
       setActionError('Укажите обоснование запроса');
       return;
     }
-    if (requestType === 'REASSIGN' && !requestTarget) {
-      setActionError('Выберите специалиста для переназначения');
-      return;
-    }
     setRequestSubmitting(true);
     try {
       await createTicketRequest(ticket.id, {
@@ -183,10 +179,11 @@ export function TicketDetailPage() {
     requestId: number,
     status: Exclude<TicketRequestStatus, 'PENDING'>,
     comment?: string,
+    targetAssigneeId?: number,
   ) => {
     setActionError('');
     try {
-      await decideTicketRequest(requestId, { status, comment });
+      await decideTicketRequest(requestId, { status, comment, targetAssigneeId });
       await refresh();
     } catch (err: unknown) {
       setActionError(getErrorMessage(err, 'Не удалось сохранить решение по запросу'));
@@ -371,7 +368,7 @@ export function TicketDetailPage() {
                       onChange={(event) => setRequestTarget(event.target.value)}
                       className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                     >
-                      <option value="">Выберите специалиста</option>
+                      <option value="">Выбор за руководителем</option>
                       {agents
                         .filter((agent) => agent.id !== user?.id)
                         .map((agent) => (
@@ -415,6 +412,7 @@ export function TicketDetailPage() {
             <h3 className="mb-3 text-sm font-semibold text-slate-700">Запросы по заявке</h3>
             <TicketRequestList
               requests={requests}
+              agents={agents}
               onDecide={isManager || isAdmin ? handleDecide : undefined}
             />
           </div>

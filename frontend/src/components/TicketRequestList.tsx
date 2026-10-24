@@ -3,14 +3,17 @@ import type {
   TicketRequestResponse,
   TicketRequestStatus,
 } from '../types/ticket';
+import type { UserResponse } from '../types/user';
 
 interface TicketRequestListProps {
   requests: TicketRequestResponse[];
+  agents?: UserResponse[];
   showTicket?: boolean;
   onDecide?: (
     requestId: number,
     status: Exclude<TicketRequestStatus, 'PENDING'>,
     comment?: string,
+    targetAssigneeId?: number,
   ) => Promise<void>;
 }
 
@@ -37,6 +40,7 @@ const statusLabels: Record<TicketRequestStatus, { label: string; classes: string
 
 export function TicketRequestList({
   requests,
+  agents = [],
   showTicket = false,
   onDecide,
 }: TicketRequestListProps) {
@@ -50,6 +54,7 @@ export function TicketRequestList({
         <RequestRow
           key={request.id}
           request={request}
+          agents={agents}
           showTicket={showTicket}
           onDecide={onDecide}
         />
@@ -60,16 +65,21 @@ export function TicketRequestList({
 
 function RequestRow({
   request,
+  agents,
   showTicket,
   onDecide,
 }: {
   request: TicketRequestResponse;
+  agents: UserResponse[];
   showTicket: boolean;
   onDecide?: TicketRequestListProps['onDecide'];
 }) {
   const [comment, setComment] = useState('');
+  const [targetAssigneeId, setTargetAssigneeId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const status = statusLabels[request.status];
+  const needsManagerChoice =
+    request.type === 'REASSIGN' && !request.targetAssignee && request.status === 'PENDING';
 
   const decide = async (next: 'APPROVED' | 'REJECTED') => {
     if (!onDecide || submitting) {
@@ -77,8 +87,14 @@ function RequestRow({
     }
     setSubmitting(true);
     try {
-      await onDecide(request.id, next, comment.trim() || undefined);
+      await onDecide(
+        request.id,
+        next,
+        comment.trim() || undefined,
+        targetAssigneeId ? Number(targetAssigneeId) : undefined,
+      );
       setComment('');
+      setTargetAssigneeId('');
     } finally {
       setSubmitting(false);
     }
@@ -101,7 +117,11 @@ function RequestRow({
       <p className="mt-2 text-sm text-slate-600">{request.reason}</p>
       <p className="mt-1 text-xs text-slate-400">
         Инициатор: {request.requester.fullName}
-        {request.targetAssignee ? ` · Новый специалист: ${request.targetAssignee.fullName}` : ''}
+        {request.targetAssignee
+          ? ` · Новый специалист: ${request.targetAssignee.fullName}`
+          : needsManagerChoice
+            ? ' · Специалиста выбирает руководитель'
+            : ''}
       </p>
       {request.decidedBy && request.decidedAt && (
         <p className="mt-1 text-xs text-slate-400">
@@ -110,7 +130,24 @@ function RequestRow({
         </p>
       )}
       {request.status === 'PENDING' && onDecide && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 space-y-2">
+          {needsManagerChoice && (
+            <select
+              value={targetAssigneeId}
+              onChange={(event) => setTargetAssigneeId(event.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="">Выберите специалиста для переназначения</option>
+              {agents
+                .filter((agent) => agent.id !== request.requester.id)
+                .map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.fullName}
+                  </option>
+                ))}
+            </select>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
           <input
             value={comment}
             onChange={(event) => setComment(event.target.value)}
@@ -119,7 +156,7 @@ function RequestRow({
           />
           <button
             onClick={() => decide('APPROVED')}
-            disabled={submitting}
+            disabled={submitting || (needsManagerChoice && !targetAssigneeId)}
             className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
           >
             Одобрить
@@ -131,6 +168,7 @@ function RequestRow({
           >
             Отклонить
           </button>
+          </div>
         </div>
       )}
     </div>
