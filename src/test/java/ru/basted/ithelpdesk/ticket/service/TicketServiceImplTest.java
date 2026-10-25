@@ -3,12 +3,14 @@ package ru.basted.ithelpdesk.ticket.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -33,12 +35,16 @@ import ru.basted.ithelpdesk.ticket.dto.TicketDeadlineExtensionRequest;
 import ru.basted.ithelpdesk.ticket.dto.TicketStatusChangeRequest;
 import ru.basted.ithelpdesk.ticket.entity.Ticket;
 import ru.basted.ithelpdesk.ticket.entity.TicketClosure;
+import ru.basted.ithelpdesk.ticket.entity.TicketDeadlineExtension;
 import ru.basted.ithelpdesk.ticket.entity.TicketStatus;
 import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
 import ru.basted.ithelpdesk.ticket.repository.TicketClosureRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketDeadlineExtensionRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
 import ru.basted.ithelpdesk.ticket.service.AgentCapacityPolicy;
+import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestStatus;
+import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestType;
+import ru.basted.ithelpdesk.ticketrequest.repository.TicketRequestRepository;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
 
@@ -50,6 +56,8 @@ class TicketServiceImplTest {
     private TicketDeadlineExtensionRepository extensionRepository;
     @Mock
     private TicketClosureRepository closureRepository;
+    @Mock
+    private TicketRequestRepository ticketRequestRepository;
     @Mock
     private TicketMapper mapper;
     @Mock
@@ -64,8 +72,9 @@ class TicketServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new TicketServiceImpl(
-                repository, extensionRepository, closureRepository, mapper, categoryRepository,
-                messageService, currentUser, new AgentCapacityPolicy(repository), 24
+                repository, extensionRepository, closureRepository, ticketRequestRepository,
+                mapper, categoryRepository, messageService, currentUser,
+                new AgentCapacityPolicy(repository), 24
         );
     }
 
@@ -271,6 +280,92 @@ class TicketServiceImplTest {
         var response = service.assignTicket(1L);
 
         assertEquals(true, response.overdue());
+    }
+
+    @Test
+    void claimingOverdueReleasedTicketProlongsDeadline() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(1);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+        when(ticketRequestRepository.existsByTicketIdAndTypeAndStatus(
+                1L, TicketRequestType.RELEASE, TicketRequestStatus.APPROVED
+        )).thenReturn(true);
+
+        var response = service.assignTicket(1L);
+
+        assertEquals(false, response.overdue());
+        assertTrue(ticket.getExtensionHours() >= 30);
+        assertTrue(Duration.between(LocalDateTime.now(), response.dueAt()).toHours() >= 23);
+        ArgumentCaptor<TicketDeadlineExtension> captor =
+                ArgumentCaptor.forClass(TicketDeadlineExtension.class);
+        verify(extensionRepository).save(captor.capture());
+        TicketDeadlineExtension extension = captor.getValue();
+        assertEquals(ticket.getExtensionHours(), extension.getHours());
+        assertEquals(
+                "Автоматическое продление срока после отказа предыдущего специалиста",
+                extension.getReason()
+        );
+        assertEquals(2L, extension.getCreatedBy().getId());
+    }
+
+    @Test
+    void claimingOverdueTicketWithoutReleaseDoesNotProlongDeadline() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(1);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+        when(ticketRequestRepository.existsByTicketIdAndTypeAndStatus(
+                1L, TicketRequestType.RELEASE, TicketRequestStatus.APPROVED
+        )).thenReturn(false);
+
+        var response = service.assignTicket(1L);
+
+        assertEquals(true, response.overdue());
+        assertEquals(0, ticket.getExtensionHours());
+        verify(extensionRepository, never()).save(any(TicketDeadlineExtension.class));
+    }
+
+    @Test
+    void claimingReleasedTicketThatIsNotOverdueDoesNotProlongDeadline() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(2));
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(1);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+
+        var response = service.assignTicket(1L);
+
+        assertEquals(false, response.overdue());
+        assertEquals(0, ticket.getExtensionHours());
+        verify(ticketRequestRepository, never())
+                .existsByTicketIdAndTypeAndStatus(any(), any(), any());
+        verify(extensionRepository, never()).save(any(TicketDeadlineExtension.class));
+    }
+
+    @Test
+    void automaticProlongationAccountsForExistingExtensionHours() {
+        User agent = user(2L, UserRole.AGENT);
+        Ticket ticket = ticket(TicketStatus.IN_PROGRESS, user(1L, UserRole.EMPLOYEE), agent);
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(30));
+        ticket.setExtensionHours(5);
+        when(repository.claimIfCapacityAvailable(1L, 2L, 10)).thenReturn(1);
+        when(repository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(currentUser.get()).thenReturn(agent);
+        when(ticketRequestRepository.existsByTicketIdAndTypeAndStatus(
+                1L, TicketRequestType.RELEASE, TicketRequestStatus.APPROVED
+        )).thenReturn(true);
+
+        var response = service.assignTicket(1L);
+
+        assertEquals(false, response.overdue());
+        assertTrue(ticket.getExtensionHours() >= 30);
+        assertTrue(Duration.between(LocalDateTime.now(), response.dueAt()).toHours() >= 23);
     }
 
     @Test
