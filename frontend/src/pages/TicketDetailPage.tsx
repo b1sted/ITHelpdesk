@@ -184,7 +184,8 @@ export function TicketDetailPage() {
       await createTicketRequest(ticket.id, {
         type: requestType,
         reason: requestReason.trim(),
-        targetAssigneeId: requestType === 'REASSIGN' ? Number(requestTarget) : undefined,
+        targetAssigneeId:
+          requestType === 'REASSIGN' && requestTarget ? Number(requestTarget) : undefined,
       });
       setRequestReason('');
       setRequestTarget('');
