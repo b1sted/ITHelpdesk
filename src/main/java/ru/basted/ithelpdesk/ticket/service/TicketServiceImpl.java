@@ -1,5 +1,6 @@
 package ru.basted.ithelpdesk.ticket.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -32,6 +33,9 @@ import ru.basted.ithelpdesk.ticket.mapper.TicketMapper;
 import ru.basted.ithelpdesk.ticket.repository.TicketClosureRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketDeadlineExtensionRepository;
 import ru.basted.ithelpdesk.ticket.repository.TicketRepository;
+import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestStatus;
+import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestType;
+import ru.basted.ithelpdesk.ticketrequest.repository.TicketRequestRepository;
 import ru.basted.ithelpdesk.user.dto.UserSummary;
 import ru.basted.ithelpdesk.user.entity.User;
 import ru.basted.ithelpdesk.user.entity.UserRole;
@@ -43,10 +47,13 @@ public class TicketServiceImpl implements TicketService {
     private static final Comparator<Ticket> LIST_ORDER =
             Comparator.comparingInt((Ticket ticket) -> statusOrder(ticket.getStatus()))
                     .thenComparing(Ticket::getId);
+    private static final String RELEASE_AUTO_EXTENSION_REASON =
+            "Автоматическое продление срока после отказа предыдущего специалиста";
 
     private final TicketRepository repository;
     private final TicketDeadlineExtensionRepository extensionRepository;
     private final TicketClosureRepository closureRepository;
+    private final TicketRequestRepository ticketRequestRepository;
     private final TicketMapper mapper;
     private final CategoryRepository categoryRepository;
     private final MessageService messageService;
@@ -58,6 +65,7 @@ public class TicketServiceImpl implements TicketService {
             TicketRepository repository,
             TicketDeadlineExtensionRepository extensionRepository,
             TicketClosureRepository closureRepository,
+            TicketRequestRepository ticketRequestRepository,
             TicketMapper mapper,
             CategoryRepository categoryRepository,
             MessageService messageService,
@@ -68,6 +76,7 @@ public class TicketServiceImpl implements TicketService {
         this.repository = repository;
         this.extensionRepository = extensionRepository;
         this.closureRepository = closureRepository;
+        this.ticketRequestRepository = ticketRequestRepository;
         this.mapper = mapper;
         this.categoryRepository = categoryRepository;
         this.messageService = messageService;
@@ -136,7 +145,9 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        return toResponse(findTicket(id), false);
+        Ticket ticket = findTicket(id);
+        prolongDeadlineAfterRelease(ticket, agent);
+        return toResponse(ticket, false);
     }
 
     @Override
@@ -190,6 +201,36 @@ public class TicketServiceImpl implements TicketService {
 
         ticket.setExtensionHours(totalExtension);
         return toResponse(ticket, true);
+    }
+
+    private void prolongDeadlineAfterRelease(Ticket ticket, User agent) {
+        LocalDateTime now = LocalDateTime.now();
+        if (!TicketSlaPolicy.isOverdueWithLimit(ticket, overdueHours, now)
+                || !ticketRequestRepository.existsByTicketIdAndTypeAndStatus(
+                        ticket.getId(), TicketRequestType.RELEASE, TicketRequestStatus.APPROVED)) {
+            return;
+        }
+
+        int hours = automaticExtensionHours(ticket, now);
+        TicketDeadlineExtension extension = new TicketDeadlineExtension();
+        extension.setHours(hours);
+        extension.setReason(RELEASE_AUTO_EXTENSION_REASON);
+        extension.setCreatedAt(now);
+        extension.setTicket(ticket);
+        extension.setCreatedBy(agent);
+        extensionRepository.save(extension);
+
+        ticket.setExtensionHours(ticket.getExtensionHours() + hours);
+    }
+
+    private static int automaticExtensionHours(Ticket ticket, LocalDateTime now) {
+        long elapsedHours = ceilHours(ticket.getCreatedAt(), now);
+        return (int) Math.max(1, elapsedHours - ticket.getExtensionHours());
+    }
+
+    private static long ceilHours(LocalDateTime from, LocalDateTime to) {
+        long seconds = Duration.between(from, to).getSeconds();
+        return seconds <= 0 ? 0 : (seconds + 3599) / 3600;
     }
 
     private Ticket pauseTicket(Ticket ticket, User user) {
