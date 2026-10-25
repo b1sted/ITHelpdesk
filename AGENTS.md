@@ -47,6 +47,8 @@ The ticket lifecycle is modeled as a deterministic finite-state machine. No comp
 
 A ticket is considered **overdue** when `now > due_at` and its status is one of `NEW`, `IN_PROGRESS`, `ANSWERED`. `WAITING_USER` pauses SLA tracking (the ball is in the requester's court), while `RESOLVED` and `CLOSED` are final states. For assigned tickets the time limit is taken from the assignee's `users.time_limit_hours`; unassigned tickets fall back to the global `app.ticket.overdue-hours` value. The deadline is derived as `due_at = created_at + limit-hours + extension_hours`. The API exposes derived `overdue` and `dueAt` fields in `TicketResponse`; the frontend highlights such tickets in red for `ROLE_AGENT`, `ROLE_MANAGER` and `ROLE_ADMIN` only.
 
+When an agent claims an overdue `NEW` ticket that has an `APPROVED` `RELEASE` request (the previous specialist refused it), the deadline is automatically shifted so that `due_at = now + claiming_agent.time_limit_hours`; the action is recorded as an immutable `ticket_deadline_extensions` row and included in `extension_hours`.
+
 ### Automatic Closure (`app.ticket.auto-close-check-ms`, env `TICKET_AUTO_CLOSE_CHECK_MS`, default `3600000`):
 
 `SYSTEM_DAEMON` periodically closes `RESOLVED` tickets whose `resolved_at` is older than `support_settings.auto_close_resolved_hours`; the value `0` disables auto-closing. Each auto-close sets `status = CLOSED` and `closed_at = now`.
@@ -77,6 +79,7 @@ A ticket is considered **overdue** when `now > due_at` and its status is one of 
 | **BP-12** | **Extend Deadline** | *Any active assigned* | *Unchanged* | `AGENT` (Assignee), `MANAGER`, `ADMIN` | Adds an immutable `ticket_deadline_extensions` row with the requested hours (1–720 in total) and a mandatory `reason`, then increments `tickets.extension_hours`. The deadline becomes `created_at + limit-hours + extension_hours`. |
 | **BP-13** | **Auto-Close Resolved** | `RESOLVED` | `CLOSED` | `SYSTEM_DAEMON` | When `support_settings.auto_close_resolved_hours > 0` and `resolved_at` is older than the configured window, sets `status = CLOSED` and `closed_at = now`. |
 | **BP-14** | **Close Unfulfillable Ticket** | `IN_PROGRESS`, `WAITING_USER`, `ANSWERED` | `CLOSED` | `AGENT` (Assignee) | Closes a ticket that cannot be fulfilled, bypassing author confirmation. Requires a mandatory `reason`; writes an immutable `ticket_closures` row with `closed_by_id` and `created_at`, then sets `status = CLOSED` and `closed_at = now` (`resolved_at` stays empty). |
+| **BP-15** | **Auto-Prolong Deadline after Release** | `NEW` (overdue, has an `APPROVED` `RELEASE` request) | *Unchanged* (during BP-2) | `AGENT` (claiming) | Automatically adds an immutable `ticket_deadline_extensions` row attributed to the claiming agent so that `due_at = now + claiming_agent.time_limit_hours`, then increments `tickets.extension_hours`. This prevents the new assignee from inheriting an already-overdue ticket after another specialist refused it. |
 
 ---
 
@@ -232,6 +235,7 @@ ru.basted.ithelpdesk.<feature>/
 * **Agent closure:** the assignee `AGENT` can close an active ticket (`IN_PROGRESS`, `WAITING_USER`, `ANSWERED`) that cannot be fulfilled by sending `PATCH /tickets/{id}/status` with `status = CLOSED` and a mandatory `reason`. The service stores an immutable `ticket_closures` row, sets `closed_at` and leaves `resolved_at` empty. The author's `RESOLVED -> CLOSED` flow does not create a closure row.
 * **SLA:** each agent has a persisted non-null `time_limit_hours` limit; `app.ticket.overdue-hours` (env `TICKET_OVERDUE_HOURS`) is the fallback for unassigned tickets only. `WAITING_USER` tickets are excluded from overdue detection.
 * **Deadline extension:** the assigned agent, a manager or an administrator can extend an active ticket by 1–720 hours in total with a mandatory reason. Every action is stored in `ticket_deadline_extensions` and increments `tickets.extension_hours`.
+* **Auto-prolongation after release:** claiming an overdue `NEW` ticket that has an `APPROVED` `RELEASE` request automatically resets its deadline to `now + claiming_agent.time_limit_hours`; the service stores a `ticket_deadline_extensions` row with the claiming agent as `created_by` (reason: «Автоматическое продление срока после отказа предыдущего специалиста»). The automatic value is not limited by the manual 720-hour cap.
 * **Auto-closing:** `SYSTEM_DAEMON` runs every `app.ticket.auto-close-check-ms` (default 1 hour) and closes `RESOLVED` tickets older than `support_settings.auto_close_resolved_hours`; `0` disables it.
 * **Concurrency:** `tickets` and `ticket_requests` carry a `version` column with JPA `@Version`. Taking a ticket is an atomic `UPDATE ... WHERE status = NEW` that also re-checks the agent capacity; a stale optimistic update is mapped to `409 Conflict` with a Russian message.
 
@@ -272,7 +276,7 @@ All authenticated endpoints expect the JWT token in the `Authorization: Bearer <
 | `POST` | `/tickets` | Register a new ticket (BP-1) | `EMPLOYEE` | `201 Created`, `400 Bad Request` |
 | `GET` | `/tickets` | List tickets (with filters by status/role), ordered by status (`NEW` → `IN_PROGRESS` → `WAITING_USER` → `ANSWERED` → `RESOLVED` → `CLOSED`) and then by id ascending. `EMPLOYEE` receives only own tickets; `AGENT` receives tickets assigned to them plus unassigned `NEW` tickets; `MANAGER`/`ADMIN` receive all | Authenticated | `200 OK` |
 | `GET` | `/tickets/{id}` | Get full ticket details with messages. `EMPLOYEE` may read only own tickets; `AGENT`/`MANAGER`/`ADMIN` may read any ticket | Authenticated | `200 OK`, `404 Not Found` |
-| `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2) | `AGENT` | `200 OK`, `409 Conflict` (status or personal limit) |
+| `PATCH`| `/tickets/{id}/assign` | Claim ticket into work (BP-2); an overdue ticket with an approved release is automatically prolonged (BP-15) | `AGENT` | `200 OK`, `409 Conflict` (status or personal limit) |
 | `PATCH`| `/tickets/{id}/status` | Transition status (BP-4–8). The assignee agent also closes an unfulfillable active ticket with a mandatory reason (BP-14); the author closes a `RESOLVED` ticket | `EMPLOYEE`, `AGENT` | `200 OK`, `400 Bad Request` (including a missing closure reason), `409 Conflict` |
 | `PATCH`| `/tickets/{id}/deadline` | Extend the ticket deadline with a mandatory reason (BP-12) | `AGENT` (Assignee), `MANAGER`, `ADMIN` | `200 OK`, `400 Bad Request`, `409 Conflict` |
 

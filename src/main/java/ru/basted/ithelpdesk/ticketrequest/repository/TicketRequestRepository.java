@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequest;
 import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestStatus;
+import ru.basted.ithelpdesk.ticketrequest.entity.TicketRequestType;
 
 public interface TicketRequestRepository extends JpaRepository<TicketRequest, Long> {
     @Override
@@ -30,4 +31,10 @@ public interface TicketRequestRepository extends JpaRepository<TicketRequest, Lo
     List<TicketRequest> findAllByTicketIdOrderByCreatedAtAsc(Long ticketId);
 
     boolean existsByTicketIdAndStatus(Long ticketId, TicketRequestStatus status);
+
+    boolean existsByTicketIdAndTypeAndStatus(
+            Long ticketId,
+            TicketRequestType type,
+            TicketRequestStatus status
+    );
 }
